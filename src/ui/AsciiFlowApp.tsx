@@ -41,7 +41,7 @@ const toolList: { id: ToolId; label: string; key: string; hint: string }[] = [
     id: "select",
     label: "Select",
     key: "S",
-    hint: "Drag to select · Drag inside to move · ⌘/Ctrl-drag to duplicate · Arrow keys nudge · Shift = 10 cells",
+    hint: "Drag to select · Shift-click to add or remove items · Drag inside to move · ⌘/Ctrl-drag to duplicate · Arrow keys nudge · Shift = 10 cells",
   },
   {
     id: "box",

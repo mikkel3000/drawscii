@@ -557,3 +557,43 @@ test("moving a selection keeps what is under its empty cells and restores what i
   // Moving on gives the line back the cells the label covered.
   assert.equal(gridToText(grid), "     │\n     │\n     │AB\n     │\n     │");
 });
+
+test("shift-click adds and removes items, and the group moves together", () => {
+  const grid = new Grid(1, 1);
+  drawBox(grid, { startRow: 0, startCol: 0, endRow: 2, endCol: 4 });
+  drawBox(grid, { startRow: 0, startCol: 10, endRow: 2, endCol: 14 });
+  drawPath(grid, route({ row: 5, col: 0 }, { row: 5, col: 6 }), true);
+  const manager = new ToolManager(grid, () => {});
+  const select = manager.getSelectTool();
+  manager.setActiveTool("select");
+  const click = (row: number, col: number, shiftKey = false) => {
+    manager.handlePointerDown({ ...pointer(row, col), shiftKey });
+    manager.handlePointerUp({ ...pointer(row, col), shiftKey });
+  };
+  click(0, 2);
+  click(0, 12, true);
+  click(5, 3, true);
+  const keys = () =>
+    new Set(select.normalized().cells!.map((p) => `${p.row}:${p.col}`));
+  assert.ok(keys().has("0:0") && keys().has("0:10") && keys().has("5:6"));
+  // Shift-clicking a selected item removes it again.
+  click(0, 12, true);
+  assert.ok(keys().has("0:0") && !keys().has("0:10") && keys().has("5:6"));
+  // Both remaining items move together; the unselected box stays put.
+  manager.edit((ctx) => select.nudge(1, 0, ctx));
+  assert.equal(
+    gridToText(grid),
+    [
+      "          ┌───┐",
+      "┌───┐     │   │",
+      "│   │     └───┘",
+      "└───┘",
+      "",
+      "",
+      "──────►",
+    ].join("\n"),
+  );
+  // Shift-clicking empty space keeps the selection.
+  click(9, 9, true);
+  assert.ok(keys().has("1:0"));
+});

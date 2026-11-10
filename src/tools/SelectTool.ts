@@ -1,4 +1,5 @@
 import {
+  bounds,
   Point,
   Shape,
   HeadEnd,
@@ -35,6 +36,8 @@ export type Selection = {
   endRow: number;
   endCol: number;
   cells?: SelectedCell[];
+  /** Built from several Shift-clicked items: drag only from its own cells. */
+  multi?: boolean;
 };
 
 export type DragPreview = {
@@ -50,6 +53,7 @@ export class SelectTool implements ITool {
   id = "select";
   private smart = true;
   private selecting = false;
+  private toggling = false;
   setSmart(value: boolean) {
     this.smart = value;
   }
@@ -85,8 +89,53 @@ export class SelectTool implements ITool {
     return this.selection;
   }
 
+  /** Shift-click adds the clicked item to the selection, or removes it. */
+  private toggleItem(state: ToolPointerState, ctx: ToolContext) {
+    const point = { row: state.row, col: state.col };
+    const region = this.smart
+      ? smartRegion(ctx.grid, point)
+      : ctx.getCell(point.row, point.col)
+        ? { ...bounds([point]), cells: [point] }
+        : null;
+    if (!region) return;
+    const drawn = (r: Selection): SelectedCell[] => {
+      if (r.cells) return r.cells;
+      const cells: SelectedCell[] = [];
+      for (let row = r.startRow; row <= r.endRow; row++)
+        for (let col = r.startCol; col <= r.endCol; col++)
+          if (ctx.getCell(row, col)) cells.push({ row, col });
+      return cells;
+    };
+    const current = new Map<string, SelectedCell>();
+    if (this.selection)
+      for (const p of drawn(this.normalized()))
+        current.set(Grid.key(p.row, p.col), p);
+    const item = drawn(region);
+    const selected = item.every((p) => current.has(Grid.key(p.row, p.col)));
+    for (const p of item) {
+      const key = Grid.key(p.row, p.col);
+      if (selected) current.delete(key);
+      else if (!current.has(key)) current.set(key, p);
+    }
+    const cells = [...current.values()];
+    if (!cells.length) {
+      this.clearSelection();
+    } else {
+      this.selection = { ...bounds(cells), cells, multi: true };
+      this.drawHighlight();
+    }
+    ctx.render();
+  }
+
   onPointerDown(state: ToolPointerState, ctx: ToolContext) {
     this.selecting = false;
+    this.toggling = false;
+    if (state.shiftKey) {
+      this.resetDragState();
+      this.toggling = true;
+      this.toggleItem(state, ctx);
+      return;
+    }
     const shape = this.selection
       ? recognizeShape(ctx.grid, this.normalized())
       : null;
@@ -95,10 +144,14 @@ export class SelectTool implements ITool {
       this.resizing = { shape, handle, base: ctx.grid.clone() };
       return;
     }
-    if (
-      this.selection &&
-      this.isInsideSelection(state.row, state.col, this.normalized())
-    ) {
+    const current = this.selection ? this.normalized() : null;
+    // A multi-selection drags from its items; others from anywhere inside.
+    const inside =
+      current &&
+      (current.multi
+        ? current.cells!.some((p) => p.row === state.row && p.col === state.col)
+        : this.isInsideSelection(state.row, state.col, current));
+    if (current && inside) {
       this.draggingSelection = true;
       this.draggingMoved = false;
       this.dragCopyMode = state.ctrlKey;
@@ -133,7 +186,7 @@ export class SelectTool implements ITool {
   }
 
   onPointerMove(state: ToolPointerState, ctx: ToolContext) {
-    if (!state.isDragging) return;
+    if (!state.isDragging || this.toggling) return;
     if (this.resizing) {
       ctx.grid.loadFromGrid(this.resizing.base);
       this.selection = resizeShape(
@@ -177,6 +230,10 @@ export class SelectTool implements ITool {
   }
 
   onPointerUp(state: ToolPointerState, ctx: ToolContext) {
+    if (this.toggling) {
+      this.toggling = false;
+      return;
+    }
     if (this.resizing) {
       this.onPointerMove({ ...state, isDragging: true }, ctx);
       this.resizing = null;
@@ -286,6 +343,7 @@ export class SelectTool implements ITool {
       endRow: Math.max(s.startRow, s.endRow),
       endCol: Math.max(s.startCol, s.endCol),
       ...(s.cells ? { cells: s.cells } : {}),
+      ...(s.multi ? { multi: true } : {}),
     };
   }
 
@@ -432,8 +490,11 @@ export class SelectTool implements ITool {
         });
       });
     this.pasteGrid(ctx, grid, row, col, opaque);
+    // A moved multi-selection keeps dragging from its own cells.
+    const multi = !opaque && this.selection?.multi;
     this.setSelection({
       ...(opaque ? {} : { cells }),
+      ...(multi ? { multi: true } : {}),
       startRow: row,
       startCol: col,
       endRow: row + rows - 1,

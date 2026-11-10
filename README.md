@@ -124,6 +124,8 @@ MIT license. Based on [xvusrmqj/obsidian-asciiflow](https://github.com/xvusrmqj/
 
 Smart selection is enabled by default. Click a box border, label, connector, or connected freehand object to select it. Drag across a label and a partial border to select only the label. Turn **Smart selection** off for literal rectangular cell selection.
 
+**Shift-click** adds the clicked item (box, label, connector or freehand object) to the selection, or removes it if it is already selected. Move, nudge, duplicate, rotate, delete, copy and line style then apply to all selected items together. Drag a multi-selection from one of its items.
+
 **Escape** cancels the current gesture, clears the selection, and resets to Select. It never closes the editor or opens a save prompt. Use the explicit Close button to leave.
 
 | Action                                   | Shortcut                                       |
