@@ -248,15 +248,83 @@ function tipGlyph(tip: Point, previous: Point) {
 }
 export type ArrowHeads = { start: boolean; end: boolean };
 /** Add or remove heads at a connector's two endpoints, leaving its body alone. */
-export function setArrowHeads(grid: Grid, points: Point[], heads: ArrowHeads) {
+export type HeadShape = "arrow" | "bar";
+/** The T-bar end at `p`: a stem back toward `previous` and a perpendicular bar, e.g. ─┤. */
+function barMask(p: Point, previous: Point) {
+  const stem = direction(p, previous);
+  return stem | (stem & (N | S) ? E | W : N | S);
+}
+function barGlyph(grid: Grid, p: Point, previous: Point) {
+  // Match the line's style, so a double line ends in ╣ rather than ┤.
+  const style = styleOf(grid.getCell(previous.row, previous.col)) ?? "solid";
+  return styledGlyph(
+    barMask(p, previous),
+    style === "dashed" ? "solid" : style,
+  );
+}
+/** The head at a connector end, if any. */
+export function headAt(
+  grid: Grid,
+  p: Point,
+  previous: Point,
+): HeadShape | null {
+  const value = grid.getCell(p.row, p.col);
+  if (isTip(value)) return "arrow";
+  if (strokes[value] !== barMask(p, previous)) return null;
+  // A T bar's arms end freely; if a line continues from them, this is a
+  // junction where the connector meets that line (───┬───), not a head.
+  const arms: [number, number, number][] =
+    direction(p, previous) & (N | S)
+      ? [
+          [0, -1, E],
+          [0, 1, W],
+        ]
+      : [
+          [-1, 0, S],
+          [1, 0, N],
+        ];
+  for (const [dr, dc, back] of arms)
+    if ((strokes[grid.getCell(p.row + dr, p.col + dc)] ?? 0) & back)
+      return null;
+  return "bar";
+}
+const headGlyph = (grid: Grid, p: Point, previous: Point, shape: HeadShape) =>
+  shape === "arrow" ? tipGlyph(p, previous) : barGlyph(grid, p, previous);
+/** The shape new heads should take: T bars if the connector already has one. */
+export function headShape(grid: Grid, points: Point[]): HeadShape {
+  const ends = [
+    headAt(grid, points[0], points[1]),
+    headAt(grid, points[points.length - 1], points[points.length - 2]),
+  ];
+  return ends.includes("bar") && !ends.includes("arrow") ? "bar" : "arrow";
+}
+/** Swap every head between an arrowhead and a T bar. */
+export function toggleHeadShape(grid: Grid, points: Point[]) {
+  if (points.length < 2) return;
+  const next: HeadShape = headShape(grid, points) === "arrow" ? "bar" : "arrow";
+  const ends: [Point, Point][] = [
+    [points[0], points[1]],
+    [points[points.length - 1], points[points.length - 2]],
+  ];
+  for (const [p, previous] of ends)
+    if (headAt(grid, p, previous))
+      grid.setCell(p.row, p.col, headGlyph(grid, p, previous, next));
+}
+export function setArrowHeads(
+  grid: Grid,
+  points: Point[],
+  heads: ArrowHeads,
+  shape: HeadShape = "arrow",
+) {
   if (points.length < 2) return;
   const ends: [Point, Point, boolean][] = [
     [points[0], points[1], heads.start],
     [points[points.length - 1], points[points.length - 2], heads.end],
   ];
   for (const [p, previous, want] of ends) {
-    const has = isTip(grid.getCell(p.row, p.col));
-    if (want && !has) grid.setCell(p.row, p.col, tipGlyph(p, previous));
+    const has = headAt(grid, p, previous) !== null;
+    if (want && !has)
+      grid.setCell(p.row, p.col, headGlyph(grid, p, previous, shape));
     if (!want && has) {
       // Rejoin any line the head was sitting on, e.g. ──▲── becomes ──┬──.
       let mask = direction(p, previous);
@@ -285,11 +353,11 @@ export function orientConnector(points: Point[]): Point[] {
     : [...points].reverse();
 }
 export function arrowHeads(grid: Grid, points: Point[]): ArrowHeads {
-  const first = points[0],
-    last = points[points.length - 1];
   return {
-    start: isTip(grid.getCell(first.row, first.col)),
-    end: isTip(grid.getCell(last.row, last.col)),
+    start: headAt(grid, points[0], points[1]) !== null,
+    end:
+      headAt(grid, points[points.length - 1], points[points.length - 2]) !==
+      null,
   };
 }
 /**
@@ -310,7 +378,7 @@ export function cycleArrowHeads(
     : only(other)
       ? { start: true, end: true }
       : { start: origin === "start", end: origin === "end" };
-  setArrowHeads(grid, points, next);
+  setArrowHeads(grid, points, next, headShape(grid, points));
   return next;
 }
 export function boxPoints(r: Rect): Point[] {
@@ -362,7 +430,17 @@ export function recognizeShape(grid: Grid, rect: Rect): Shape | null {
   grid.forEachCell((p) => {
     if (inside(p, rect)) cells.push(p);
   });
-  const tip = cells.find((p) => isTip(grid.getCell(p.row, p.col)));
+  const neighbours = (p: Point) =>
+    cells.filter(
+      (q) => Math.abs(q.row - p.row) + Math.abs(q.col - p.col) === 1,
+    );
+  // A connector starts at an arrowhead, or at a T-bar end (─┤) with one neighbour.
+  const tip =
+    cells.find((p) => isTip(grid.getCell(p.row, p.col))) ??
+    cells.find((p) => {
+      const next = neighbours(p);
+      return next.length === 1 && headAt(grid, p, next[0]) === "bar";
+    });
   if (
     !tip ||
     cells.some(
@@ -447,15 +525,8 @@ export function resizeShape(
   );
   vertices[handle === 0 ? 0 : vertices.length - 1] = target;
   const style = shapeStyle(grid, points) ?? "solid";
-  const heads = {
-    start: isTip(grid.getCell(points[0].row, points[0].col)),
-    end: isTip(
-      grid.getCell(
-        points[points.length - 1].row,
-        points[points.length - 1].col,
-      ),
-    ),
-  };
+  const heads = arrowHeads(grid, points),
+    ends = headShape(grid, points);
   points.forEach((p) => grid.setCell(p.row, p.col, ""));
   let path: Point[] = [];
   for (let i = 1; i < vertices.length; i++)
@@ -466,8 +537,8 @@ export function resizeShape(
         i === 1 && points[0].col === points[1].col,
       ).slice(i === 1 ? 0 : 1),
     );
-  drawPath(grid, path, heads.end);
-  setArrowHeads(grid, path, heads);
+  drawPath(grid, path, heads.end && ends === "arrow");
+  setArrowHeads(grid, path, heads, ends);
   if (style !== "solid") restyle(grid, path, style);
   return bounds(path);
 }

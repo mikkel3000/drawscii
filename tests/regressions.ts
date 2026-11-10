@@ -186,7 +186,9 @@ import {
   recognizeShape,
   resizeShape,
   rasterLine,
+  restyle,
   setArrowHeads,
+  toggleHeadShape,
 } from "../src/model/Drawing";
 import { mergeCodeBlock } from "../src/model/CodeBlock";
 
@@ -495,4 +497,63 @@ test("line style changes an arrow but not the box border it touches", () => {
   manager.handlePointerUp(pointer(1, 7));
   manager.edit((ctx) => manager.getSelectTool().cycleLineStyle(ctx));
   assert.equal(gridToText(grid), "┌───┐\n│   ├┄┄┄┄┄►\n└───┘");
+});
+
+test("arrowheads switch to T bars, keep cycling, and T-ended lines are connectors", () => {
+  const grid = new Grid(1, 1);
+  drawPath(grid, route({ row: 0, col: 0 }, { row: 0, col: 6 }), true);
+  assert.equal(gridToText(grid), "──────►");
+  const manager = new ToolManager(grid, () => {});
+  manager.setActiveTool("select");
+  manager.handlePointerDown(pointer(0, 3));
+  manager.handlePointerUp(pointer(0, 3));
+  const select = () => manager.getSelectTool();
+  manager.edit((ctx) => select().toggleHeadShape(ctx));
+  assert.equal(gridToText(grid), "──────┤");
+  // A line ending only in a T bar is still recognized as a connector.
+  assert.equal(
+    recognizeShape(grid, { startRow: 0, startCol: 0, endRow: 0, endCol: 6 })
+      ?.kind,
+    "arrow",
+  );
+  manager.edit((ctx) => select().cycleArrowHeads(ctx));
+  assert.equal(gridToText(grid), "├──────");
+  manager.edit((ctx) => select().cycleArrowHeads(ctx));
+  assert.equal(gridToText(grid), "├─────┤");
+  manager.edit((ctx) => select().toggleHeadShape(ctx));
+  assert.equal(gridToText(grid), "◄─────►");
+  manager.undo();
+  assert.equal(gridToText(grid), "├─────┤");
+});
+
+test("T bars follow the line style and turn with the connector", () => {
+  const grid = new Grid(1, 1);
+  const path = route({ row: 0, col: 0 }, { row: 3, col: 0 });
+  drawPath(grid, path, true);
+  restyle(grid, path, "double");
+  toggleHeadShape(grid, path);
+  assert.equal(gridToText(grid), "║\n║\n║\n╩");
+});
+
+test("moving a selection keeps what is under its empty cells and restores what it passed over", () => {
+  const grid = new Grid(1, 1);
+  drawPath(grid, route({ row: 0, col: 5 }, { row: 4, col: 5 }));
+  grid.setCell(2, 0, "A");
+  grid.setCell(2, 1, "B");
+  const manager = new ToolManager(grid, () => {});
+  const select = manager.getSelectTool();
+  manager.setActiveTool("select");
+  // A rectangular selection with empty space around the label.
+  select.setSelection({ startRow: 1, startCol: 0, endRow: 3, endCol: 3 });
+  const nudge = (dc: number) => manager.edit((ctx) => select.nudge(0, dc, ctx));
+  nudge(3);
+  // Its empty cells now cover the line, which is untouched.
+  assert.equal(gridToText(grid), "     │\n     │\n   AB│\n     │\n     │");
+  nudge(1);
+  assert.equal(gridToText(grid), "     │\n     │\n    AB\n     │\n     │");
+  nudge(1);
+  assert.equal(gridToText(grid), "     │\n     │\n     AB\n     │\n     │");
+  nudge(1);
+  // Moving on gives the line back the cells the label covered.
+  assert.equal(gridToText(grid), "     │\n     │\n     │AB\n     │\n     │");
 });

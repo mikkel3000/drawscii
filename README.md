@@ -135,6 +135,7 @@ Smart selection is enabled by default. Click a box border, label, connector, or 
 | Duplicate                                | D or Cmd/Ctrl+D, then position and click/Enter |
 | Center label horizontally and vertically | C                                              |
 | Cycle arrowheads: one end, other, both   | Select an arrow, then V                        |
+| Head shape: arrowhead ► or T bar ┤       | Select an arrow, then Shift+V                  |
 | Rotate selection 90°                     | O clockwise, Shift+O counter-clockwise         |
 | Line style: solid → dashed → double      | Select a box or line, then W                   |
 | Clear drawing                            | X, then confirm                                |

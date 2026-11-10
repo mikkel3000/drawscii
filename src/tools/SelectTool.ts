@@ -8,6 +8,7 @@ import {
   shapeStyle,
   cycleArrowHeads,
   orientConnector,
+  toggleHeadShape,
   recognizeShape,
   resizeShape,
   shapeHandles,
@@ -217,16 +218,10 @@ export class SelectTool implements ITool {
       if (!this.dragCopyMode) {
         this.clearRegion(ctx, this.dragSourceSelection);
       }
-      this.pasteGrid(
-        ctx,
-        this.dragClipboard,
-        target.startRow,
-        target.startCol,
-        !this.dragSourceSelection.cells,
-      );
+      // Only drawn cells land; empty ones leave what is underneath alone.
+      const clipboard = this.dragClipboard;
       this.resetDragState();
-      this.drawHighlight();
-      ctx.render();
+      this.placeGrid(clipboard, target.startRow, target.startCol, ctx, false);
       return;
     }
 
@@ -322,7 +317,7 @@ export class SelectTool implements ITool {
       targetCol: target.startCol,
       sourceSelection: this.dragSourceSelection,
       copyMode: this.dragCopyMode,
-      opaque: !this.dragSourceSelection.cells,
+      opaque: false,
     });
   }
 
@@ -424,13 +419,19 @@ export class SelectTool implements ITool {
     ctx: ToolContext,
     opaque = true,
   ) {
-    this.pasteGrid(ctx, grid, row, col, opaque);
     const { rows, cols } = grid.getSize();
-    const cells: Point[] = [];
+    const cells: SelectedCell[] = [];
+    // Remember what each drawn cell covers, so moving on restores it.
     if (!opaque)
-      grid.forEachCell((p) =>
-        cells.push({ row: row + p.row, col: col + p.col }),
-      );
+      grid.forEachCell((p) => {
+        const under = ctx.getCell(row + p.row, col + p.col);
+        cells.push({
+          row: row + p.row,
+          col: col + p.col,
+          ...(under ? { restore: under } : {}),
+        });
+      });
+    this.pasteGrid(ctx, grid, row, col, opaque);
     this.setSelection({
       ...(opaque ? {} : { cells }),
       startRow: row,
@@ -468,7 +469,7 @@ export class SelectTool implements ITool {
       }
     }
     if (!copy) this.clearRegion(ctx, old);
-    this.placeGrid(captured, row, col, ctx, !old.cells);
+    this.placeGrid(captured, row, col, ctx, false);
   }
 
   /** Turn the selection 90° about its centre, keeping it selected. */
@@ -501,6 +502,15 @@ export class SelectTool implements ITool {
     const style = shapeStyle(ctx.grid, points);
     if (!style) return;
     restyle(ctx.grid, points, nextLineStyle(style));
+    ctx.render();
+  }
+
+  /** Swap the selected connector's heads between arrowheads and T bars. */
+  toggleHeadShape(ctx: ToolContext) {
+    if (!this.selection) return;
+    const shape = recognizeShape(ctx.grid, this.normalized());
+    if (shape?.kind !== "arrow") return;
+    toggleHeadShape(ctx.grid, shape.points);
     ctx.render();
   }
 

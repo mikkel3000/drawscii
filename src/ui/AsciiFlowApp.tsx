@@ -455,7 +455,8 @@ export function AsciiFlowApp({
         manager.setActiveTool("select");
         paste = captured;
         duplicateSource = source;
-        pasteOpaque = !source.cells;
+        // Duplicates land transparently, like moves.
+        pasteOpaque = false;
         setPending(true);
         refreshHover({ row: source.startRow, col: source.endCol + 2 });
         setMessage(
@@ -678,7 +679,12 @@ export function AsciiFlowApp({
           },
           d: () => actions.current.duplicate(),
           c: () => manager.edit((ctx) => selection.centerLabel(ctx)),
-          v: () => manager.edit((ctx) => selection.cycleArrowHeads(ctx)),
+          v: () =>
+            manager.edit((ctx) =>
+              event.shiftKey
+                ? selection.toggleHeadShape(ctx)
+                : selection.cycleArrowHeads(ctx),
+            ),
           w: () => manager.edit((ctx) => selection.cycleLineStyle(ctx)),
           o: () =>
             manager.edit((ctx) => selection.rotate(ctx, !event.shiftKey)),
@@ -1046,6 +1052,17 @@ export function AsciiFlowApp({
           Arrowheads <kbd>V</kbd>
         </button>
         <button
+          disabled={saving || preview || selectedShape?.kind !== "arrow"}
+          title="Head shape: arrowhead ► or T bar ┤ (Shift+V)"
+          onClick={() =>
+            managerRef.current?.edit((ctx) =>
+              managerRef.current!.getSelectTool().toggleHeadShape(ctx),
+            )
+          }
+        >
+          Head shape <kbd>⇧V</kbd>
+        </button>
+        <button
           disabled={saving || preview || !selected}
           title="Line style: solid → dashed ┄ → double ═ (W)"
           onClick={() =>
@@ -1123,7 +1140,8 @@ export function AsciiFlowApp({
           ⌘/Ctrl+S saves; ⌘/Ctrl+Shift+S saves and closes. Escape resets to
           Select without closing. U undoes, R redoes, Cmd/Ctrl+A selects all, D
           duplicates, C centers labels, V cycles a selected arrow's heads (one
-          end, the other, both), O rotates the selection 90° clockwise (Shift+O
+          end, the other, both), Shift+V switches them between arrowheads and T
+          bars, O rotates the selection 90° clockwise (Shift+O
           counter-clockwise), W cycles line style (solid, dashed, double), and X
           clears after confirmation. Action letters work when not typing a
           label. Plain text is available in Preview for keyboard and

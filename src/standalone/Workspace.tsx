@@ -30,13 +30,13 @@ const recall = (key: string) => {
     return null;
   }
 };
+const NO_ACCESS =
+  "ASCIIFlow has no access to part of this folder, usually because it was opened before subfolder access was granted.";
 const message = (e: unknown, fallback: string) => {
   const text =
     e instanceof Error ? e.message : typeof e === "string" ? e : fallback;
   // Access granted before subfolders were included, or revoked by the OS.
-  return /forbidden path/i.test(text)
-    ? "ASCIIFlow has no access to part of this folder. Choose “Open another folder…” and pick it again."
-    : text;
+  return /forbidden path/i.test(text) ? NO_ACCESS : text;
 };
 /** Whether `path` is `root` itself or lies inside it. */
 const within = (path: string, root: string) =>
@@ -253,9 +253,10 @@ export function Workspace() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const chooseFolder = async () => {
+  /** Pick a folder; with `again`, re-pick the current one to renew its access. */
+  const chooseFolder = async (again = false) => {
     try {
-      const next = await pickFolder();
+      const next = await pickFolder(again ? store?.root : undefined);
       if (next) await switchTo(next);
     } catch (e) {
       setError(message(e, "Could not open that folder."));
@@ -671,9 +672,17 @@ export function Workspace() {
           )}
         </ul>
         {error && (
-          <p className="asciiflow-sidebar-error" role="alert">
-            {error}
-          </p>
+          <div className="asciiflow-sidebar-error" role="alert">
+            <p>{error}</p>
+            {error === NO_ACCESS && store && (
+              <button
+                className="mod-cta"
+                onClick={() => void chooseFolder(true)}
+              >
+                Grant access to “{store.label}”…
+              </button>
+            )}
+          </div>
         )}
         <div className="asciiflow-sidebar-foot">
           <button onClick={() => void chooseFolder()}>

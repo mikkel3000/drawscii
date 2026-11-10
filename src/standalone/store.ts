@@ -106,12 +106,15 @@ export class FolderStore {
 
 const LAST_FOLDER = "asciiflow:folder";
 
-export async function pickFolder(): Promise<FolderStore | null> {
+export async function pickFolder(
+  defaultPath?: string,
+): Promise<FolderStore | null> {
   const picked = await open({
     directory: true,
     // Grant access to subfolders too, not just the folder itself.
     recursive: true,
-    title: "Open diagram folder",
+    defaultPath,
+    title: defaultPath ? "Grant access to this folder" : "Open diagram folder",
   });
   if (typeof picked !== "string") return null;
   try {

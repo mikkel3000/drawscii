@@ -326,21 +326,26 @@ export class CanvasRenderer {
       ctx.fillRect(x, y, 2, cellHeight);
     }
 
+    // Outline handle cells instead of covering them, so arrowheads and
+    // corners stay visible while they are being edited.
     for (const p of this.handles) {
-      const size = 7 / this.zoom;
-      ctx.fillStyle = this.theme.background;
+      const inset = 0.5 / this.zoom;
       ctx.strokeStyle = "#6496ff";
-      ctx.fillRect(
-        (p.col + 0.5) * cellWidth - size / 2,
-        (p.row + 0.5) * cellHeight - size / 2,
-        size,
-        size,
-      );
+      ctx.lineWidth = 1.5 / this.zoom;
       ctx.strokeRect(
-        (p.col + 0.5) * cellWidth - size / 2,
-        (p.row + 0.5) * cellHeight - size / 2,
-        size,
-        size,
+        p.col * cellWidth + inset,
+        p.row * cellHeight + inset,
+        cellWidth - 2 * inset,
+        cellHeight - 2 * inset,
+      );
+      // A small knob on the outer corner keeps the handle easy to spot.
+      const knob = 4 / this.zoom;
+      ctx.fillStyle = "#6496ff";
+      ctx.fillRect(
+        (p.col + 1) * cellWidth - knob,
+        p.row * cellHeight,
+        knob,
+        knob,
       );
     }
     ctx.restore();
