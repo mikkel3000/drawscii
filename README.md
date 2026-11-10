@@ -104,7 +104,7 @@ The DOM tests mock canvas rendering and Obsidian is not present in that harness.
 
 ### Current boundaries
 
-- Resize handles recognize rectangular boxes and simple, unbranched arrows from their characters. Complex drawings remain editable through rectangular selection; no hidden shape metadata is stored. Attached connectors are not automatically rerouted when a box moves or resizes.
+- Resize handles recognize rectangular boxes and simple, unbranched arrows from their characters. Complex drawings remain editable through rectangular selection; no hidden shape metadata is stored.
 - Keep blocks at the top level of notes; up to three spaces of indentation are supported. Nested list and blockquote blocks are rejected by the save validator.
 - Reopening a workspace pane after restarting Obsidian shows an instruction to reopen a diagram; recovery drafts persist separately.
 - Full desktop, mobile, and pop-out-window behavior needs an Obsidian smoke test. Keyboard shortcuts are designed for desktop; touch supports basic drawing and erasing.
@@ -123,6 +123,8 @@ MIT license. Based on [xvusrmqj/obsidian-asciiflow](https://github.com/xvusrmqj/
 ## Selection and action shortcuts
 
 Smart selection is enabled by default. Click a box border, label, connector, or connected freehand object to select it. Drag across a label and a partial border to select only the label. Turn **Smart selection** off for literal rectangular cell selection.
+
+**Connectors stay attached.** Moving or resizing a box redraws the lines and arrows attached to its border, keeping their heads and line style. They leave the box at a right angle and bend where needed. A connector between two boxes that move together travels with them unchanged. Duplicating (⌘/Ctrl-drag) leaves connectors with the original. A connector that branches is left as it is.
 
 **Shift-click** adds the clicked item (box, label, connector or freehand object) to the selection, or removes it if it is already selected. Move, nudge, duplicate, rotate, delete, copy and line style then apply to all selected items together. Drag a multi-selection from one of its items.
 

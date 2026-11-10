@@ -1,6 +1,8 @@
 import {
   bounds,
+  boxPoints,
   Point,
+  Rect,
   Shape,
   HeadEnd,
   arrowHeads,
@@ -16,6 +18,7 @@ import {
   samePoint,
 } from "../model/Drawing";
 import {
+  boxes,
   enclosingBox,
   smartRegion,
   textRegion,
@@ -25,6 +28,14 @@ import {
 import { charWidth } from "../model/CharWidth";
 import { Grid } from "../model/Grid";
 import { rotateGrid } from "../model/Rotate";
+import {
+  Attachment,
+  detach,
+  findAttachments,
+  moveAttachment,
+  reattach,
+  resizeAttachment,
+} from "../model/Attach";
 import { gridFromText, gridToText } from "../model/Serializer";
 import { ITool } from "./ITool";
 import { ToolContext } from "./ToolContext";
@@ -57,7 +68,12 @@ export class SelectTool implements ITool {
   setSmart(value: boolean) {
     this.smart = value;
   }
-  private resizing: { shape: Shape; handle: number; base: Grid } | null = null;
+  private resizing: {
+    shape: Shape;
+    handle: number;
+    base: Grid;
+    attachments: Attachment[];
+  } | null = null;
   private selection: Selection | null = null;
   private headCycle: { ends: string; origin: HeadEnd } | null = null;
   private renderHighlight: ((sel: Selection) => void) | null = null;
@@ -141,7 +157,14 @@ export class SelectTool implements ITool {
       : null;
     const handle = shapeHandles(shape).findIndex((p) => samePoint(p, state));
     if (shape && handle >= 0 && !state.ctrlKey) {
-      this.resizing = { shape, handle, base: ctx.grid.clone() };
+      this.resizing = {
+        shape,
+        handle,
+        base: ctx.grid.clone(),
+        // Connectors on the box follow its sides while it resizes.
+        attachments:
+          shape.kind === "box" ? this.attachmentsFor(ctx, shape.rect) : [],
+      };
       return;
     }
     const current = this.selection ? this.normalized() : null;
@@ -189,12 +212,15 @@ export class SelectTool implements ITool {
     if (!state.isDragging || this.toggling) return;
     if (this.resizing) {
       ctx.grid.loadFromGrid(this.resizing.base);
+      const { attachments } = this.resizing;
+      detach(ctx.grid, attachments);
       this.selection = resizeShape(
         ctx.grid,
         this.resizing.shape,
         this.resizing.handle,
         state,
       );
+      reattach(ctx.grid, attachments, resizeAttachment(this.selection));
       this.drawHighlight();
       ctx.render();
       return;
@@ -272,6 +298,15 @@ export class SelectTool implements ITool {
         ctx.render();
         return;
       }
+      // Connectors attached to moved boxes follow them (not when copying).
+      const delta = {
+        row: target.startRow - source.startRow,
+        col: target.startCol - source.startCol,
+      };
+      const attached = this.dragCopyMode
+        ? []
+        : this.attachmentsFor(ctx, source);
+      detach(ctx.grid, attached);
       if (!this.dragCopyMode) {
         this.clearRegion(ctx, this.dragSourceSelection);
       }
@@ -279,6 +314,8 @@ export class SelectTool implements ITool {
       const clipboard = this.dragClipboard;
       this.resetDragState();
       this.placeGrid(clipboard, target.startRow, target.startCol, ctx, false);
+      reattach(ctx.grid, attached, moveAttachment(delta), delta);
+      ctx.render();
       return;
     }
 
@@ -529,8 +566,46 @@ export class SelectTool implements ITool {
               : old.endRow + 2;
       }
     }
+    const delta = { row: row - old.startRow, col: col - old.startCol };
+    const attached = copy ? [] : this.attachmentsFor(ctx, old);
+    detach(ctx.grid, attached);
     if (!copy) this.clearRegion(ctx, old);
     this.placeGrid(captured, row, col, ctx, false);
+    reattach(ctx.grid, attached, moveAttachment(delta), delta);
+    ctx.render();
+  }
+
+  /**
+   * Connectors attached to boxes inside `sel`. A connector between two
+   * selected boxes is found from both; keep it once.
+   */
+  private attachmentsFor(ctx: ToolContext, sel: Rect | Selection) {
+    const keys =
+      "cells" in sel && sel.cells
+        ? new Set(sel.cells.map((p) => Grid.key(p.row, p.col)))
+        : null;
+    const moving = (p: Point) =>
+      keys
+        ? keys.has(Grid.key(p.row, p.col))
+        : p.row >= sel.startRow &&
+          p.row <= sel.endRow &&
+          p.col >= sel.startCol &&
+          p.col <= sel.endCol;
+    const seen = new Set<string>();
+    const result: Attachment[] = [];
+    for (const box of boxes(ctx.grid)) {
+      if (!boxPoints(box).every(moving)) continue;
+      for (const a of findAttachments(ctx.grid, box, moving)) {
+        const ends = [a.path[0], a.path[a.path.length - 1]]
+          .map((p) => Grid.key(p.row, p.col))
+          .sort()
+          .join("|");
+        if (seen.has(ends)) continue;
+        seen.add(ends);
+        result.push(a);
+      }
+    }
+    return result;
   }
 
   /** Turn the selection 90° about its centre, keeping it selected. */

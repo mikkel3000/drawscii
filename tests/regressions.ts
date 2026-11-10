@@ -597,3 +597,98 @@ test("shift-click adds and removes items, and the group moves together", () => {
   click(9, 9, true);
   assert.ok(keys().has("1:0"));
 });
+
+test("connectors stay attached when a box moves", () => {
+  const grid = new Grid(1, 1);
+  drawBox(grid, { startRow: 0, startCol: 0, endRow: 2, endCol: 4 });
+  drawBox(grid, { startRow: 0, startCol: 14, endRow: 2, endCol: 18 });
+  drawPath(grid, route({ row: 1, col: 4 }, { row: 1, col: 14 }), true);
+  const manager = new ToolManager(grid, () => {});
+  const select = manager.getSelectTool();
+  manager.setActiveTool("select");
+  manager.handlePointerDown(pointer(0, 2));
+  manager.handlePointerUp(pointer(0, 2));
+  manager.edit((ctx) => select.nudge(4, 0, ctx));
+  assert.equal(
+    gridToText(grid),
+    [
+      "              ┌───┐",
+      "         ┌────►   │",
+      "         │    └───┘",
+      "         │",
+      "┌───┐    │",
+      "│   ├────┘",
+      "└───┘",
+    ].join("\n"),
+  );
+  // One undo step restores the box and its connector together.
+  manager.undo();
+  assert.equal(
+    gridToText(grid),
+    ["┌───┐         ┌───┐", "│   ├─────────►   │", "└───┘         └───┘"].join(
+      "\n",
+    ),
+  );
+});
+
+test("a connector between two boxes moved together travels unchanged", () => {
+  const grid = new Grid(1, 1);
+  drawBox(grid, { startRow: 0, startCol: 0, endRow: 2, endCol: 4 });
+  drawBox(grid, { startRow: 0, startCol: 14, endRow: 2, endCol: 18 });
+  drawPath(grid, route({ row: 1, col: 4 }, { row: 1, col: 14 }), true);
+  const manager = new ToolManager(grid, () => {});
+  const select = manager.getSelectTool();
+  manager.setActiveTool("select");
+  manager.handlePointerDown(pointer(0, 2));
+  manager.handlePointerUp(pointer(0, 2));
+  manager.handlePointerDown({ ...pointer(0, 16), shiftKey: true });
+  manager.handlePointerUp({ ...pointer(0, 16), shiftKey: true });
+  manager.edit((ctx) => select.nudge(2, 3, ctx));
+  assert.equal(
+    gridToText(grid),
+    [
+      "",
+      "",
+      "   ┌───┐         ┌───┐",
+      "   │   ├─────────►   │",
+      "   └───┘         └───┘",
+    ].join("\n"),
+  );
+});
+
+test("connectors follow the sides of a resized box", () => {
+  const grid = new Grid(1, 1);
+  drawBox(grid, { startRow: 0, startCol: 0, endRow: 2, endCol: 4 });
+  drawPath(grid, route({ row: 1, col: 4 }, { row: 1, col: 12 }), true);
+  drawPath(grid, route({ row: 2, col: 2 }, { row: 6, col: 2 }), true);
+  const manager = new ToolManager(grid, () => {});
+  manager.setActiveTool("select");
+  manager.handlePointerDown(pointer(0, 2));
+  manager.handlePointerUp(pointer(0, 2));
+  // Drag the bottom-right handle out.
+  manager.handlePointerDown(pointer(2, 4));
+  manager.handlePointerMove({
+    ...pointer(4, 7),
+    startRow: 2,
+    startCol: 4,
+    isDragging: true,
+  });
+  manager.handlePointerUp({
+    ...pointer(4, 7),
+    startRow: 2,
+    startCol: 4,
+    isDragging: true,
+  });
+  assert.equal(
+    gridToText(grid),
+    [
+      "┌──────┐",
+      "│      ├────►",
+      "│      │",
+      "│      │",
+      "└─┬────┘",
+      "  │",
+      "  ▼",
+    ].join("\n"),
+  );
+});
