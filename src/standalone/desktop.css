@@ -1,0 +1,287 @@
+/* Desktop shell. The editor styles use Obsidian's theme variables. */
+:root {
+  color-scheme: light dark;
+  --font-monospace:
+    ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  --background-primary: #ffffff;
+  --background-secondary: #f3f3f5;
+  --background-modifier-border: #dcdce0;
+  --text-normal: #222226;
+  --text-muted: #6b6b73;
+  --text-error: #c62828;
+  --text-accent: #6a4fd8;
+  --interactive-accent: #7c5ce8;
+  --text-on-accent: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background-primary: #1e1e20;
+    --background-secondary: #29292c;
+    --background-modifier-border: #3c3c42;
+    --text-normal: #e6e6ea;
+    --text-muted: #a0a0a8;
+    --text-error: #ff8a80;
+    --text-accent: #b6a5fa;
+    --interactive-accent: #9c85fa;
+    --text-on-accent: #15121e;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  overflow: hidden;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+}
+button {
+  cursor: pointer;
+  padding: 4px 10px;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+button.mod-cta {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: transparent;
+}
+
+.asciiflow-workspace {
+  display: flex;
+  height: 100%;
+}
+.asciiflow-sidebar {
+  width: 240px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--background-secondary);
+  border-right: 1px solid var(--background-modifier-border);
+  font-size: 13px;
+}
+.asciiflow-sidebar-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.asciiflow-sidebar-head strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asciiflow-sidebar-head button {
+  padding: 2px 7px;
+}
+.asciiflow-spacer {
+  flex: 1;
+}
+.asciiflow-tree,
+.asciiflow-tree ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.asciiflow-tree {
+  flex: 1;
+  overflow: auto;
+  padding: 6px 0;
+}
+.asciiflow-tree-row {
+  display: flex;
+  align-items: center;
+  padding-right: 6px;
+}
+.asciiflow-tree-row:hover {
+  background: var(--background-primary);
+}
+.asciiflow-tree-row.is-active {
+  background: color-mix(in srgb, var(--interactive-accent) 22%, transparent);
+}
+.asciiflow-tree-label {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 0;
+  text-align: left;
+  background: none;
+  border: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asciiflow-tree-icon {
+  width: 10px;
+  flex: none;
+  color: var(--text-muted);
+}
+.asciiflow-tree-actions {
+  display: none;
+  gap: 2px;
+}
+.asciiflow-tree-row:hover .asciiflow-tree-actions,
+.asciiflow-tree-row:focus-within .asciiflow-tree-actions {
+  display: flex;
+}
+.asciiflow-tree-actions button {
+  padding: 2px 5px;
+  background: none;
+  border: 0;
+  color: var(--text-muted);
+}
+.asciiflow-tree-actions button:hover {
+  color: var(--text-normal);
+}
+.asciiflow-sidebar-empty,
+.asciiflow-sidebar-error {
+  margin: 8px;
+  color: var(--text-muted);
+}
+.asciiflow-sidebar-error {
+  color: var(--text-error);
+}
+.asciiflow-sidebar-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+.asciiflow-workspace-editor {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}
+.asciiflow-workspace-empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-muted);
+}
+
+.asciiflow-name-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 18vh;
+  background: rgb(0 0 0 / 0.35);
+  z-index: 100;
+}
+.asciiflow-name-dialog {
+  width: min(360px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.3);
+}
+.asciiflow-name-dialog label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 600;
+}
+.asciiflow-name-dialog input {
+  padding: 6px 8px;
+  font-weight: normal;
+}
+.asciiflow-name-dialog p {
+  margin: 0;
+  color: var(--text-error);
+}
+.asciiflow-name-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Drag and drop */
+.asciiflow-tree-row.is-dragging {
+  opacity: 0.45;
+}
+.asciiflow-tree.is-drop,
+.asciiflow-tree li.is-drop-zone {
+  background: color-mix(in srgb, var(--interactive-accent) 10%, transparent);
+}
+.asciiflow-tree.is-drop {
+  outline: 1px dashed var(--interactive-accent);
+  outline-offset: -3px;
+}
+.asciiflow-tree-row.is-drop {
+  background: color-mix(in srgb, var(--interactive-accent) 28%, transparent);
+}
+.asciiflow-tree li.asciiflow-sidebar-empty {
+  margin: 8px;
+  color: var(--text-muted);
+}
+
+/* Context menu */
+.asciiflow-menu {
+  position: fixed;
+  z-index: 200;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
+  font-size: 13px;
+}
+.asciiflow-menu button {
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  padding: 5px 10px;
+}
+.asciiflow-menu button:hover,
+.asciiflow-menu button:focus-visible {
+  background: color-mix(in srgb, var(--interactive-accent) 18%, transparent);
+  outline: none;
+}
+.asciiflow-menu button.is-danger {
+  color: var(--text-error);
+}
+.asciiflow-menu hr {
+  width: 100%;
+  margin: 4px 0;
+  border: 0;
+  border-top: 1px solid var(--background-modifier-border);
+}

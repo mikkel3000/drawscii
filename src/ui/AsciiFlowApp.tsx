@@ -1,5 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
-import { gridFromText, gridToText } from "../model/Serializer";
+import {
+  drawingPreviewText,
+  gridFromText,
+  gridToText,
+} from "../model/Serializer";
 import {
   bounds,
   drawPath,
@@ -29,6 +33,8 @@ export type AsciiFlowAppProps = {
   onCancel: () => void;
   onDraft?: (text: string | null) => void;
   onReady?: (handle: EditorHandle) => void;
+  /** Outside Obsidian: autosave through onSave and hide the close actions. */
+  standalone?: boolean;
 };
 const toolList: { id: ToolId; label: string; key: string; hint: string }[] = [
   {
@@ -87,6 +93,7 @@ export function AsciiFlowApp({
   onCancel,
   onDraft,
   onReady,
+  standalone = false,
 }: AsciiFlowAppProps) {
   const [grid] = useState(() => gridFromText(draft ?? initialText));
   const [saved, setSaved] = useState(() =>
@@ -159,7 +166,7 @@ export function AsciiFlowApp({
       live.current.dirty = false;
       live.current.text = snapshot;
       onDraft?.(null);
-      setMessage("Saved to your note.");
+      setMessage(standalone ? "Saved." : "Saved to your note.");
       if (close) onCancel();
     } catch (e) {
       setError(
@@ -194,13 +201,24 @@ export function AsciiFlowApp({
       getText: () => gridToText(grid),
     });
     return () => {
+      // Standalone documents flush unsaved work when switching files.
+      if (standalone && live.current.dirty)
+        void onSave(gridToText(grid)).catch(() => {});
       callbacks.current.onDraft?.(
         !live.current.dirty ? null : gridToText(grid),
       );
     };
   }, []);
   useEffect(() => {
-    const timer = setTimeout(() => onDraft?.(dirty ? text : null), 400);
+    const timer = setTimeout(() => {
+      onDraft?.(dirty ? text : null);
+      // Autosave without finishing the active tool, so typing is not interrupted.
+      if (standalone && dirty && !live.current.saving)
+        void onSave(text).then(
+          () => setSaved(text),
+          (e) => setError(e instanceof Error ? e.message : "Could not save."),
+        );
+    }, 400);
     return () => clearTimeout(timer);
   }, [text, dirty, onDraft]);
 
@@ -660,6 +678,10 @@ export function AsciiFlowApp({
           },
           d: () => actions.current.duplicate(),
           c: () => manager.edit((ctx) => selection.centerLabel(ctx)),
+          v: () => manager.edit((ctx) => selection.cycleArrowHeads(ctx)),
+          w: () => manager.edit((ctx) => selection.cycleLineStyle(ctx)),
+          o: () =>
+            manager.edit((ctx) => selection.rotate(ctx, !event.shiftKey)),
           x: () => setConfirm("clear"),
         };
         if (action[key]) {
@@ -777,7 +799,8 @@ export function AsciiFlowApp({
     : null;
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(gridToText(grid));
+      // Crop surrounding whitespace so pasted diagrams sit flush anywhere.
+      await navigator.clipboard.writeText(drawingPreviewText(gridToText(grid)));
       setMessage("Drawing copied.");
     } catch {
       setError("Clipboard unavailable. Use Preview and copy the text below.");
@@ -786,7 +809,9 @@ export function AsciiFlowApp({
   };
   const exportText = () => {
     const url = URL.createObjectURL(
-      new Blob([gridToText(grid)], { type: "text/plain;charset=utf-8" }),
+      new Blob([drawingPreviewText(gridToText(grid))], {
+        type: "text/plain;charset=utf-8",
+      }),
     );
     const a = document.createElement("a");
     a.href = url;
@@ -803,7 +828,9 @@ export function AsciiFlowApp({
           {saving
             ? "Saving…"
             : dirty
-              ? "Unsaved changes · draft kept"
+              ? standalone
+                ? "Unsaved changes"
+                : "Unsaved changes · draft kept"
               : "Saved"}
         </span>
         <div className="asciiflow-spacer" />
@@ -815,7 +842,8 @@ export function AsciiFlowApp({
           Help
         </button>
         <button onClick={copy}>Copy drawing</button>
-        <button onClick={exportText}>Export .txt</button>
+        {/* Standalone diagrams are already .txt files; webviews block downloads. */}
+        {!standalone && <button onClick={exportText}>Export .txt</button>}
         <button
           className="mod-cta"
           disabled={saving}
@@ -824,16 +852,20 @@ export function AsciiFlowApp({
         >
           Save
         </button>
-        <button
-          disabled={saving}
-          onClick={() => void save(true)}
-          title="⌘/Ctrl+Shift+S"
-        >
-          Save & close
-        </button>
-        <button disabled={saving} onClick={requestClose}>
-          Close
-        </button>
+        {!standalone && (
+          <>
+            <button
+              disabled={saving}
+              onClick={() => void save(true)}
+              title="⌘/Ctrl+Shift+S"
+            >
+              Save & close
+            </button>
+            <button disabled={saving} onClick={requestClose}>
+              Close
+            </button>
+          </>
+        )}
       </div>
       <fieldset
         className="asciiflow-toolbar"
@@ -1003,6 +1035,39 @@ export function AsciiFlowApp({
           Center label <kbd>C</kbd>
         </button>
         <button
+          disabled={saving || preview || selectedShape?.kind !== "arrow"}
+          title="Cycle arrowheads: one end, the other end, both ends (V)"
+          onClick={() =>
+            managerRef.current?.edit((ctx) =>
+              managerRef.current!.getSelectTool().cycleArrowHeads(ctx),
+            )
+          }
+        >
+          Arrowheads <kbd>V</kbd>
+        </button>
+        <button
+          disabled={saving || preview || !selected}
+          title="Line style: solid → dashed ┄ → double ═ (W)"
+          onClick={() =>
+            managerRef.current?.edit((ctx) =>
+              managerRef.current!.getSelectTool().cycleLineStyle(ctx),
+            )
+          }
+        >
+          Line style <kbd>W</kbd>
+        </button>
+        <button
+          disabled={saving || preview || !selected}
+          title="Rotate 90° clockwise (O); Shift+O or Shift-click rotates counter-clockwise"
+          onClick={(event) =>
+            managerRef.current?.edit((ctx) =>
+              managerRef.current!.getSelectTool().rotate(ctx, !event.shiftKey),
+            )
+          }
+        >
+          Rotate <kbd>O</kbd>
+        </button>
+        <button
           disabled={saving || preview || !text}
           onClick={() => setConfirm("clear")}
         >
@@ -1057,9 +1122,12 @@ export function AsciiFlowApp({
           <br />
           ⌘/Ctrl+S saves; ⌘/Ctrl+Shift+S saves and closes. Escape resets to
           Select without closing. U undoes, R redoes, Cmd/Ctrl+A selects all, D
-          duplicates, C centers labels, and X clears after confirmation. Action
-          letters work when not typing a label. Plain text is available in
-          Preview for keyboard and screen-reader access.
+          duplicates, C centers labels, V cycles a selected arrow's heads (one
+          end, the other, both), O rotates the selection 90° clockwise (Shift+O
+          counter-clockwise), W cycles line style (solid, dashed, double), and X
+          clears after confirmation. Action letters work when not typing a
+          label. Plain text is available in Preview for keyboard and
+          screen-reader access.
         </div>
       )}
       {error && (

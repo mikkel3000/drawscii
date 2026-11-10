@@ -32,7 +32,82 @@ export const strokes: Record<string, number> = {
   "╢": 13,
   "╫": 15,
   "╬": 15,
+  // Full double-line boxes.
+  "╔": 6,
+  "╗": 12,
+  "╚": 3,
+  "╝": 9,
+  "╠": 7,
+  "╣": 13,
+  "╦": 14,
+  "╩": 11,
+  // Dashed lines (triple, double and quadruple dash variants).
+  "┄": 10,
+  "┆": 5,
+  "╌": 10,
+  "╎": 5,
+  "┈": 10,
+  "┊": 5,
 };
+export type LineStyle = "solid" | "dashed" | "double";
+const DOUBLE = "═║╔╗╚╝╠╣╦╩╬╤╧╪╟╢╫";
+const DASHED = "┄┆╌╎┈┊";
+/** The style of a line character, or null for anything else. */
+export function styleOf(value: string): LineStyle | null {
+  if (!value || !strokes[value]) return null;
+  return DOUBLE.includes(value)
+    ? "double"
+    : DASHED.includes(value)
+      ? "dashed"
+      : "solid";
+}
+const doubleGlyphs: Record<number, string> = {
+  1: "║",
+  4: "║",
+  5: "║",
+  2: "═",
+  8: "═",
+  10: "═",
+  6: "╔",
+  12: "╗",
+  3: "╚",
+  9: "╝",
+  7: "╠",
+  13: "╣",
+  14: "╦",
+  11: "╩",
+  15: "╬",
+};
+/** The glyph joining `mask` in `style`. Dashes have no corners, so those stay solid. */
+export function styledGlyph(mask: number, style: LineStyle): string {
+  if (style === "double") return doubleGlyphs[mask] ?? "═";
+  if (style === "dashed" && (mask === 5 || mask === 1 || mask === 4))
+    return "┆";
+  if (style === "dashed" && (mask === 10 || mask === 2 || mask === 8))
+    return "┄";
+  return glyphs[mask] ?? (mask & 5 ? "│" : "─");
+}
+/** Redraw the line characters at `points` in `style`, keeping their joins. */
+export function restyle(grid: Grid, points: Point[], style: LineStyle) {
+  for (const p of points) {
+    const value = grid.getCell(p.row, p.col);
+    if (styleOf(value) && styleOf(value) !== style)
+      grid.setCell(p.row, p.col, styledGlyph(strokes[value], style));
+  }
+}
+/** A shape's style: dashed or double if any of its cells are (dashed corners are solid). */
+export function shapeStyle(grid: Grid, points: Point[]): LineStyle | null {
+  const styles = points.map((p) => styleOf(grid.getCell(p.row, p.col)));
+  return styles.includes("double")
+    ? "double"
+    : styles.includes("dashed")
+      ? "dashed"
+      : styles.includes("solid")
+        ? "solid"
+        : null;
+}
+export const nextLineStyle = (style: LineStyle): LineStyle =>
+  style === "solid" ? "dashed" : style === "dashed" ? "double" : "solid";
 const glyphs: Record<number, string> = {
   1: "│",
   2: "─",
@@ -116,6 +191,11 @@ export function drawPath(
   });
   for (const { point: p, mask } of masks.values()) {
     const old = join ? grid.getCell(p.row, p.col) : "";
+    // Joining a full double-line box keeps its corners and junctions double.
+    if (!doubleAxis && old && "╔╗╚╝╠╣╦╩".includes(old)) {
+      grid.setCell(p.row, p.col, styledGlyph(mask, "double"));
+      continue;
+    }
     const horizontal =
       doubleAxis === "horizontal" || ("═╤╧╪╬".includes(old) && old !== "");
     const vertical =
@@ -149,21 +229,89 @@ export function drawPath(
     );
   }
   if (arrow && points.length > 1) {
-    const tip = points[points.length - 1],
-      previous = points[points.length - 2];
+    const tip = points[points.length - 1];
     // A connector endpoint must always retain its direction, including on borders.
-    grid.setCell(
-      tip.row,
-      tip.col,
-      tip.row > previous.row
-        ? "▼"
-        : tip.row < previous.row
-          ? "▲"
-          : tip.col > previous.col
-            ? "►"
-            : "◄",
-    );
+    grid.setCell(tip.row, tip.col, tipGlyph(tip, points[points.length - 2]));
   }
+}
+const TIPS = "►◄▼▲";
+export const isTip = (value: string) => value !== "" && TIPS.includes(value);
+/** The head at `tip`, pointing away from the neighbouring path cell. */
+function tipGlyph(tip: Point, previous: Point) {
+  return tip.row > previous.row
+    ? "▼"
+    : tip.row < previous.row
+      ? "▲"
+      : tip.col > previous.col
+        ? "►"
+        : "◄";
+}
+export type ArrowHeads = { start: boolean; end: boolean };
+/** Add or remove heads at a connector's two endpoints, leaving its body alone. */
+export function setArrowHeads(grid: Grid, points: Point[], heads: ArrowHeads) {
+  if (points.length < 2) return;
+  const ends: [Point, Point, boolean][] = [
+    [points[0], points[1], heads.start],
+    [points[points.length - 1], points[points.length - 2], heads.end],
+  ];
+  for (const [p, previous, want] of ends) {
+    const has = isTip(grid.getCell(p.row, p.col));
+    if (want && !has) grid.setCell(p.row, p.col, tipGlyph(p, previous));
+    if (!want && has) {
+      // Rejoin any line the head was sitting on, e.g. ──▲── becomes ──┬──.
+      let mask = direction(p, previous);
+      const around: [number, number, number, number][] = [
+        [-1, 0, N, S],
+        [1, 0, S, N],
+        [0, -1, W, E],
+        [0, 1, E, W],
+      ];
+      for (const [dr, dc, toward, back] of around) {
+        const q = { row: p.row + dr, col: p.col + dc };
+        if (samePoint(q, previous)) continue;
+        if ((strokes[grid.getCell(q.row, q.col)] ?? 0) & back) mask |= toward;
+      }
+      grid.setCell(p.row, p.col, glyphs[mask] ?? (mask & 5 ? "│" : "─"));
+    }
+  }
+}
+export type HeadEnd = "start" | "end";
+/** A connector oriented from its top-left endpoint, so ends are stable. */
+export function orientConnector(points: Point[]): Point[] {
+  const a = points[0],
+    b = points[points.length - 1];
+  return a.row < b.row || (a.row === b.row && a.col <= b.col)
+    ? points
+    : [...points].reverse();
+}
+export function arrowHeads(grid: Grid, points: Point[]): ArrowHeads {
+  const first = points[0],
+    last = points[points.length - 1];
+  return {
+    start: isTip(grid.getCell(first.row, first.col)),
+    end: isTip(grid.getCell(last.row, last.col)),
+  };
+}
+/**
+ * Step a connector's heads from `origin` (the end its single head started on):
+ * the other end → both ends → back to the origin.
+ */
+export function cycleArrowHeads(
+  grid: Grid,
+  points: Point[],
+  origin: HeadEnd,
+): ArrowHeads {
+  const other: HeadEnd = origin === "start" ? "end" : "start";
+  const heads = arrowHeads(grid, points);
+  const only = (end: HeadEnd) =>
+    heads[end] && !heads[end === "start" ? "end" : "start"];
+  const next: ArrowHeads = only(origin)
+    ? { start: other === "start", end: other === "end" }
+    : only(other)
+      ? { start: true, end: true }
+      : { start: origin === "start", end: origin === "end" };
+  setArrowHeads(grid, points, next);
+  return next;
 }
 export function boxPoints(r: Rect): Point[] {
   const a = { row: r.startRow, col: r.startCol },
@@ -214,13 +362,13 @@ export function recognizeShape(grid: Grid, rect: Rect): Shape | null {
   grid.forEachCell((p) => {
     if (inside(p, rect)) cells.push(p);
   });
-  const tip = cells.find((p) => "►◄▼▲".includes(grid.getCell(p.row, p.col)));
+  const tip = cells.find((p) => isTip(grid.getCell(p.row, p.col)));
   if (
     !tip ||
     cells.some(
       (p) =>
         !strokes[grid.getCell(p.row, p.col)] &&
-        !"►◄▼▲".includes(grid.getCell(p.row, p.col)),
+        !isTip(grid.getCell(p.row, p.col)),
     )
   )
     return null;
@@ -284,8 +432,10 @@ export function resizeShape(
         fits = false;
     });
     if (!fits) return old;
+    const style = shapeStyle(grid, boxPoints(old)) ?? "solid";
     boxPoints(old).forEach((p) => grid.setCell(p.row, p.col, ""));
     drawBox(grid, rect);
+    if (style !== "solid") restyle(grid, boxPoints(rect), style);
     return rect;
   }
   const points = shape.points;
@@ -296,6 +446,16 @@ export function resizeShape(
       direction(points[i - 1], p) !== direction(p, points[i + 1]),
   );
   vertices[handle === 0 ? 0 : vertices.length - 1] = target;
+  const style = shapeStyle(grid, points) ?? "solid";
+  const heads = {
+    start: isTip(grid.getCell(points[0].row, points[0].col)),
+    end: isTip(
+      grid.getCell(
+        points[points.length - 1].row,
+        points[points.length - 1].col,
+      ),
+    ),
+  };
   points.forEach((p) => grid.setCell(p.row, p.col, ""));
   let path: Point[] = [];
   for (let i = 1; i < vertices.length; i++)
@@ -306,6 +466,8 @@ export function resizeShape(
         i === 1 && points[0].col === points[1].col,
       ).slice(i === 1 ? 0 : 1),
     );
-  drawPath(grid, path, true);
+  drawPath(grid, path, heads.end);
+  setArrowHeads(grid, path, heads);
+  if (style !== "solid") restyle(grid, path, style);
   return bounds(path);
 }

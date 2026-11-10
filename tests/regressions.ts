@@ -186,6 +186,7 @@ import {
   recognizeShape,
   resizeShape,
   rasterLine,
+  setArrowHeads,
 } from "../src/model/Drawing";
 import { mergeCodeBlock } from "../src/model/CodeBlock";
 
@@ -373,4 +374,125 @@ test("undo restores the label cursor before typing replacement text", () => {
   assert.deepEqual(manager.getTextTool().getCursor(), { row: 1, col: 4 });
   manager.edit((ctx) => manager.getTextTool().handleChar("N", ctx), "typing");
   assert.equal(gridToText(grid), "\n    N");
+});
+
+test("arrowheads cycle to the other end, both ends, then back", () => {
+  const grid = new Grid(1, 1);
+  drawPath(grid, route({ row: 0, col: 0 }, { row: 0, col: 6 }));
+  drawPath(grid, route({ row: 3, col: 3 }, { row: 0, col: 3 }), true);
+  assert.equal(gridToText(grid), "───▲───\n   │\n   │\n   │");
+  const manager = new ToolManager(grid, () => {});
+  manager.setActiveTool("select");
+  manager.handlePointerDown(pointer(2, 3));
+  manager.handlePointerUp(pointer(2, 3));
+  const press = () =>
+    manager.edit((ctx) => manager.getSelectTool().cycleArrowHeads(ctx));
+  press();
+  // The head leaves the line, which rejoins as a junction.
+  assert.equal(gridToText(grid), "───┬───\n   │\n   │\n   ▼");
+  press();
+  assert.equal(gridToText(grid), "───▲───\n   │\n   │\n   ▼");
+  press();
+  assert.equal(gridToText(grid), "───▲───\n   │\n   │\n   │");
+  manager.undo();
+  assert.equal(gridToText(grid), "───▲───\n   │\n   │\n   ▼");
+});
+
+test("resizing a double-headed arrow keeps both heads", () => {
+  const grid = new Grid(1, 1);
+  drawPath(grid, route({ row: 0, col: 0 }, { row: 0, col: 4 }), true);
+  setArrowHeads(grid, route({ row: 0, col: 0 }, { row: 0, col: 4 }), {
+    start: true,
+    end: true,
+  });
+  assert.equal(gridToText(grid), "◄───►");
+  const shape = recognizeShape(grid, {
+    startRow: 0,
+    startCol: 0,
+    endRow: 0,
+    endCol: 4,
+  })!;
+  // Drag whichever handle is the right-hand end.
+  const points = (shape as { points: { col: number }[] }).points;
+  resizeShape(grid, shape, points[0].col === 4 ? 0 : 1, { row: 0, col: 7 });
+  assert.equal(gridToText(grid).trim(), "◄──────►");
+});
+
+test("rotating a selection turns lines and arrows and keeps labels readable", () => {
+  const grid = gridFromText(
+    ["┌──────┐", "│ Hi   ├──►", "└──────┘"].join("\n"),
+    1,
+    1,
+  );
+  const manager = new ToolManager(grid, () => {});
+  manager.setActiveTool("select");
+  manager.getSelectTool().setSelection({
+    startRow: 0,
+    startCol: 0,
+    endRow: 2,
+    endCol: 10,
+  });
+  const turn = (clockwise: boolean) =>
+    manager.edit((ctx) => manager.getSelectTool().rotate(ctx, clockwise));
+  turn(true);
+  const text = gridToText(grid);
+  // The box is now tall and narrow, the connector points down, the label survives.
+  assert.match(text, /┌─┐/);
+  assert.match(text, /▼/);
+  assert.ok(!/[►─]{3}/.test(text.split("\n")[0]));
+  assert.equal(text.replace(/[^A-Za-z]/g, ""), "Hi");
+  turn(false);
+  assert.equal(
+    gridToText(grid).trim(),
+    ["┌──────┐", "│ Hi   ├──►", "└──────┘"].join("\n"),
+  );
+  manager.undo();
+  manager.undo();
+  assert.equal(
+    gridToText(grid),
+    ["┌──────┐", "│ Hi   ├──►", "└──────┘"].join("\n"),
+  );
+});
+
+test("line style cycles a box through dashed and double and survives resize", () => {
+  const grid = new Grid(1, 1);
+  drawBox(grid, { startRow: 0, startCol: 0, endRow: 2, endCol: 5 });
+  grid.setCell(1, 2, "A");
+  const manager = new ToolManager(grid, () => {});
+  manager.setActiveTool("select");
+  manager.handlePointerDown(pointer(0, 2));
+  manager.handlePointerUp(pointer(0, 2));
+  const press = () =>
+    manager.edit((ctx) => manager.getSelectTool().cycleLineStyle(ctx));
+  press();
+  assert.equal(gridToText(grid), "┌┄┄┄┄┐\n┆ A  ┆\n└┄┄┄┄┘");
+  press();
+  assert.equal(gridToText(grid), "╔════╗\n║ A  ║\n╚════╝");
+  // Still recognized as a box, and resizing keeps the double border.
+  const rect = { startRow: 0, startCol: 0, endRow: 2, endCol: 5 };
+  const shape = recognizeShape(grid, rect);
+  assert.equal(shape?.kind, "box");
+  resizeShape(grid, shape!, 2, { row: 3, col: 7 });
+  assert.equal(gridToText(grid), "╔══════╗\n║ A    ║\n║      ║\n╚══════╝");
+  // Handle drags update the selection; mirror that here.
+  manager
+    .getSelectTool()
+    .setSelection({ startRow: 0, startCol: 0, endRow: 3, endCol: 7 });
+  press();
+  assert.equal(gridToText(grid).split("\n")[0], "┌──────┐");
+  manager.undo();
+  assert.equal(gridToText(grid).split("\n")[0], "╔══════╗");
+});
+
+test("line style changes an arrow but not the box border it touches", () => {
+  const grid = new Grid(1, 1);
+  drawBox(grid, { startRow: 0, startCol: 0, endRow: 2, endCol: 4 });
+  drawPath(grid, route({ row: 1, col: 4 }, { row: 1, col: 10 }), true);
+  assert.equal(gridToText(grid), "┌───┐\n│   ├─────►\n└───┘");
+  const manager = new ToolManager(grid, () => {});
+  manager.setActiveTool("select");
+  manager.handlePointerDown(pointer(1, 7));
+  manager.handlePointerUp(pointer(1, 7));
+  manager.edit((ctx) => manager.getSelectTool().cycleLineStyle(ctx));
+  assert.equal(gridToText(grid), "┌───┐\n│   ├┄┄┄┄┄►\n└───┘");
 });

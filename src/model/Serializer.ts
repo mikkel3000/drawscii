@@ -54,7 +54,7 @@ export function gridToText(grid: Grid): string {
   return lines.join("\n").replace(/\n+$/g, "");
 }
 
-/** Crop display-only whitespace; editing and saving retain the original coordinates. */
+/** Crop surrounding whitespace for display, copying and export; notes keep the drawn coordinates. */
 export function drawingPreviewText(text: string): string {
   const grid = gridFromText(text, 1, 1);
   let top = Infinity,

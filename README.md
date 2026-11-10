@@ -54,7 +54,7 @@ The grid grows to the right and downward when you draw. Freehand and eraser stro
 - Closing a pane using Obsidian's own tab-close button keeps its draft; it does not display the modal's confirmation dialog.
 - **ASCIIFlow: Recover latest drawing draft** creates a separate recovery note. Use this if the original diagram was moved, removed, or changed.
 - Saving merges changes to an unchanged, uniquely identifiable diagram while preserving edits elsewhere in the note. Conflicting or ambiguous diagrams are rejected, with your drawing kept available.
-- **Copy drawing** copies the entire diagram. **Export .txt** downloads a standalone text file. **Clear** asks first and can be undone.
+- **Copy drawing** copies the diagram with surrounding blank rows and columns cropped, ready to paste anywhere. **Export .txt** downloads the same cropped text. **Clear** asks first and can be undone.
 
 ## Use your local fork
 
@@ -77,6 +77,20 @@ cp main.js manifest.json styles.css "$VAULT_PATH/.obsidian/plugins/asciiflow/"
 Disable an existing ASCIIFlow installation before copying. This fork uses the same plugin ID, `asciiflow`. Restart Obsidian and enable ASCIIFlow under **Settings → Community plugins**. If your vault uses a custom configuration folder, substitute it for `.obsidian`.
 
 After changes, rebuild, copy the files again, and toggle the plugin off/on. `npm run dev` watches and rebuilds source files in the repository; it does not install or reload the plugin automatically. Keep the vault's `data.json` when updating so recovery drafts survive.
+
+## Desktop editor
+
+The same editor also runs as a desktop app (Tauri), outside Obsidian. Its left sidebar browses a folder you choose: create, rename and delete diagrams (`.txt` files) and subfolders. Hidden folders such as `.git` are skipped. Diagrams autosave as you draw, cropped to their content, so a file pastes cleanly into GitHub, GitLab or any Markdown. The app reopens the last folder and diagram on start.
+
+Requires Node.js 20+ and Rust 1.85+, plus the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your OS (Xcode Command Line Tools on macOS):
+
+```bash
+npm ci
+npm run tauri dev     # run the app
+npm run tauri build   # build the installer, e.g. src-tauri/target/release/bundle/macos/ASCIIFlow.app
+```
+
+`npm run tauri dev` starts a watcher that serves the editor on port 1420: saving a TypeScript or CSS file reloads the app window within a second, and Rust changes in `src-tauri/` rebuild and restart the app. `npm run tauri build` makes a minified bundle in `desktop-dist/` instead; `npm run build:desktop` does only that step.
 
 ## Development and validation
 
@@ -120,6 +134,9 @@ Smart selection is enabled by default. Click a box border, label, connector, or 
 | Select all                               | Cmd/Ctrl+A                                     |
 | Duplicate                                | D or Cmd/Ctrl+D, then position and click/Enter |
 | Center label horizontally and vertically | C                                              |
+| Cycle arrowheads: one end, other, both   | Select an arrow, then V                        |
+| Rotate selection 90°                     | O clockwise, Shift+O counter-clockwise         |
+| Line style: solid → dashed → double      | Select a box or line, then W                   |
 | Clear drawing                            | X, then confirm                                |
 
 Single-letter actions are inactive while entering a label. Duplicates cannot be placed over their source; move the preview clear of the original before committing. Rendered notes crop empty margins and center the visible drawing, without changing stored coordinates.

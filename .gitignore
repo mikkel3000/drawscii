@@ -4,3 +4,6 @@ main.js.map
 
 playwright-report/
 test-results/
+desktop-dist/
+src-tauri/target/
+src-tauri/gen/

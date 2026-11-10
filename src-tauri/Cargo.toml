@@ -1,0 +1,15 @@
+[package]
+name = "asciiflow-desktop"
+version = "1.0.0"
+description = "ASCIIFlow diagram editor"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "~2.6", features = [] }
+
+[dependencies]
+# Keep minor versions in step with the @tauri-apps npm packages in package.json.
+tauri = { version = "~2.11", features = [] }
+tauri-plugin-dialog = "~2.7"
+tauri-plugin-fs = "~2.5"
+tauri-plugin-persisted-scope = "~2.3"

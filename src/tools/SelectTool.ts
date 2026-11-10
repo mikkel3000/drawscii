@@ -1,6 +1,13 @@
 import {
   Point,
   Shape,
+  HeadEnd,
+  arrowHeads,
+  nextLineStyle,
+  restyle,
+  shapeStyle,
+  cycleArrowHeads,
+  orientConnector,
   recognizeShape,
   resizeShape,
   shapeHandles,
@@ -15,6 +22,7 @@ import {
 } from "../model/SmartSelection";
 import { charWidth } from "../model/CharWidth";
 import { Grid } from "../model/Grid";
+import { rotateGrid } from "../model/Rotate";
 import { gridFromText, gridToText } from "../model/Serializer";
 import { ITool } from "./ITool";
 import { ToolContext } from "./ToolContext";
@@ -46,6 +54,7 @@ export class SelectTool implements ITool {
   }
   private resizing: { shape: Shape; handle: number; base: Grid } | null = null;
   private selection: Selection | null = null;
+  private headCycle: { ends: string; origin: HeadEnd } | null = null;
   private renderHighlight: ((sel: Selection) => void) | null = null;
   private clearHighlight: (() => void) | null = null;
   private renderDragPreview: ((preview: DragPreview | null) => void) | null =
@@ -460,6 +469,61 @@ export class SelectTool implements ITool {
     }
     if (!copy) this.clearRegion(ctx, old);
     this.placeGrid(captured, row, col, ctx, !old.cells);
+  }
+
+  /** Turn the selection 90° about its centre, keeping it selected. */
+  rotate(ctx: ToolContext, turnClockwise = true) {
+    if (!this.selection) return;
+    const old = this.normalized(),
+      turned = rotateGrid(this.captureSelection(ctx, old), turnClockwise);
+    const { rows, cols } = turned.getSize();
+    const centerRow = (old.startRow + old.endRow) / 2,
+      centerCol = (old.startCol + old.endCol) / 2;
+    const row = Math.max(0, Math.round(centerRow - (rows - 1) / 2)),
+      col = Math.max(0, Math.round(centerCol - (cols - 1) / 2));
+    this.clearRegion(ctx, old);
+    // Write only drawn cells: the turned footprint may cover neighbours.
+    this.placeGrid(turned, row, col, ctx, false);
+  }
+
+  /** Cycle the selection's lines: solid → dashed → double → solid. */
+  cycleLineStyle(ctx: ToolContext) {
+    if (!this.selection) return;
+    const sel = this.normalized();
+    // Skip cells where a connector touches a box border it does not own.
+    const points: Point[] = sel.cells
+      ? sel.cells.filter((p) => p.restore === undefined)
+      : [];
+    if (!sel.cells)
+      for (let row = sel.startRow; row <= sel.endRow; row++)
+        for (let col = sel.startCol; col <= sel.endCol; col++)
+          points.push({ row, col });
+    const style = shapeStyle(ctx.grid, points);
+    if (!style) return;
+    restyle(ctx.grid, points, nextLineStyle(style));
+    ctx.render();
+  }
+
+  /** Cycle the selected connector's heads: one end, the other, both. */
+  cycleArrowHeads(ctx: ToolContext) {
+    if (!this.selection) return;
+    const shape = recognizeShape(ctx.grid, this.normalized());
+    if (shape?.kind !== "arrow") return;
+    const points = orientConnector(shape.points);
+    const ends = points
+      .filter((_, i) => i === 0 || i === points.length - 1)
+      .map((p) => Grid.key(p.row, p.col))
+      .join("|");
+    // Repeated presses on the same arrow continue from where its head began.
+    if (this.headCycle?.ends !== ends) {
+      const heads = arrowHeads(ctx.grid, points);
+      this.headCycle = {
+        ends,
+        origin: heads.start && !heads.end ? "start" : "end",
+      };
+    }
+    cycleArrowHeads(ctx.grid, points, this.headCycle.origin);
+    ctx.render();
   }
 
   centerLabel(ctx: ToolContext) {

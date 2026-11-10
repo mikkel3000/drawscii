@@ -63,7 +63,8 @@ export class CanvasRenderer {
   }
 
   private get win() {
-    return this.canvas.ownerDocument.defaultView!;
+    // Pop-out windows own their canvas; fall back for detached canvases.
+    return this.canvas.ownerDocument?.defaultView ?? window;
   }
 
   private watchResolution() {
@@ -71,6 +72,9 @@ export class CanvasRenderer {
       "change",
       this.onResolutionChange,
     );
+    this.resolutionQuery = null;
+    // Resolution tracking is an enhancement; never fail to open the editor.
+    if (typeof this.win.matchMedia !== "function") return;
     this.resolutionQuery = this.win.matchMedia(
       `(resolution: ${this.win.devicePixelRatio}dppx)`,
     );
