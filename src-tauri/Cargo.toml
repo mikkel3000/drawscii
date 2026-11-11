@@ -1,7 +1,7 @@
 [package]
-name = "asciiflow-desktop"
+name = "drawscii-desktop"
 version = "1.0.0"
-description = "ASCIIFlow diagram editor"
+description = "Drawscii diagram editor"
 edition = "2021"
 
 [build-dependencies]

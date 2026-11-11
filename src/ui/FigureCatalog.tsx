@@ -10,11 +10,11 @@ export function FigureCatalog({
   const [query, setQuery] = useState("");
   const matches = searchFigures(query);
   return (
-    <section className="asciiflow-catalog" aria-label="Figure catalog">
-      <div className="asciiflow-catalog-search">
-        <label htmlFor="asciiflow-figure-query">Find a figure</label>
+    <section className="drawscii-catalog" aria-label="Figure catalog">
+      <div className="drawscii-catalog-search">
+        <label htmlFor="drawscii-figure-query">Find a figure</label>
         <input
-          id="asciiflow-figure-query"
+          id="drawscii-figure-query"
           type="search"
           autoFocus
           value={query}
@@ -30,11 +30,11 @@ export function FigureCatalog({
         Choose a figure, move it onto the canvas, then click or press Enter to
         place it. Escape cancels.
       </p>
-      <div className="asciiflow-catalog-grid">
+      <div className="drawscii-catalog-grid">
         {matches.map((figure) => (
           <button
             key={figure.id}
-            className="asciiflow-figure"
+            className="drawscii-figure"
             onClick={() => onChoose(figure)}
             aria-label={`Place ${figure.name}`}
             title={`Place ${figure.name}`}
@@ -45,7 +45,7 @@ export function FigureCatalog({
           </button>
         ))}
         {!matches.length && (
-          <p className="asciiflow-catalog-empty">
+          <p className="drawscii-catalog-empty">
             No figures match “{query}”. Try “box”, “arrow”, or “server”.
           </p>
         )}

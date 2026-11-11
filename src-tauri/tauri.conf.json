@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "ASCIIFlow",
+  "productName": "Drawscii",
   "version": "1.0.0",
-  "identifier": "no.mikkel3000.asciiflow",
+  "identifier": "no.mikkel3000.drawscii",
   "build": {
     "frontendDist": "../desktop-dist",
     "devUrl": "http://127.0.0.1:1420",
@@ -15,7 +15,7 @@
   "app": {
     "windows": [
       {
-        "title": "ASCIIFlow",
+        "title": "Drawscii",
         "width": 1280,
         "height": 820,
         "minWidth": 720,

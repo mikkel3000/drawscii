@@ -8,5 +8,5 @@ fn main() {
         // Keeps access to the chosen diagram folder across restarts.
         .plugin(tauri_plugin_persisted_scope::init())
         .run(tauri::generate_context!())
-        .expect("failed to start ASCIIFlow");
+        .expect("failed to start Drawscii");
 }

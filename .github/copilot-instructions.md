@@ -6,8 +6,8 @@
 - Use existing layers (UI → Tools → Renderer → Model → Input) to place new logic.
 
 ## Architecture
-- **Entry**: `src/main.tsx` registers the `asciiflow` code block processor and opens the modal editor.
-- **UI**: `src/ui/AsciiFlowApp.tsx` hosts the toolbar + canvas and wires tool interactions.
+- **Entry**: `src/main.tsx` registers the `drawscii` code block processor (and `asciiflow` for notes from before the rename) and opens the modal editor.
+- **UI**: `src/ui/DrawsciiApp.tsx` hosts the toolbar + canvas and wires tool interactions.
 - **Tools**: `src/tools/` implements `ITool` + `ToolManager` and tool-specific logic.
 - **Model**: `src/model/Grid.ts` is the sparse grid data source; `Serializer.ts` handles text ↔ grid.
 - **Renderer**: `src/renderer/CanvasRenderer.ts` draws the grid on canvas.

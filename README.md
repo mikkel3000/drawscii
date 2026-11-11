@@ -1,19 +1,22 @@
-# Obsidian ASCIIFlow — local fork
+# Drawscii
 
-Draw and revise text diagrams inside Obsidian. Diagrams remain ordinary `asciiflow` code blocks in your Markdown notes.
+Draw and revise text diagrams in Obsidian, or in the desktop app. Diagrams are plain text, ordinary `drawscii` code blocks in your Markdown notes, so they read and paste well anywhere.
+
+Drawscii is a fork of [obsidian-asciiflow](https://github.com/xvusrmqj/obsidian-asciiflow) by xvusrmqj, an editor in the style of [ASCIIFlow](https://asciiflow.com) by Lewis Hemens. See [Credits](#credits).
 
 ## Start a drawing
 
-Run **ASCIIFlow: Insert ASCII diagram** from the command palette. It inserts a block at the cursor and opens the editor. To edit an existing diagram:
+Run **Drawscii: Insert ASCII diagram** from the command palette. It inserts a block at the cursor and opens the editor. To edit an existing diagram:
 
 - In Reading view and rendered Live Preview blocks, drawings appear as centered embeds without a code-block background. They expand beyond the readable text column into available pane space, while paragraphs keep their normal width. Oversized diagrams scroll horizontally; drawings inside callouts or embedded notes retain their container width. Hover or focus the drawing to reveal **Edit drawing** and **Open in pane** (always visible on touch devices). Double-click the drawing, or focus it and press Enter, to edit.
-- Source mode and active Live Preview blocks still expose the underlying `asciiflow` code fence for text editing.
-- In the note editor, put the cursor inside a diagram and run **ASCIIFlow: Edit ASCII diagram at cursor**.
+- Source mode and active Live Preview blocks still expose the underlying `drawscii` code fence for text editing.
+- In the note editor, put the cursor inside a diagram and run **Drawscii: Edit ASCII diagram at cursor**.
+- Notes from before the rename use `asciiflow` code blocks. They render and edit the same way, and saving keeps their `asciiflow` fence.
 
 You can also write a block manually:
 
 ````markdown
-```asciiflow
+```drawscii
 ┌────────────┐
 │ Start here │
 └────────────┘
@@ -52,7 +55,7 @@ The grid grows to the right and downward when you draw. Freehand and eraser stro
 - Closing a modal with changes offers Save, Discard, or Keep editing.
 - Unsaved drafts are stored in this plugin's `data.json`, with a short debounce and a flush on editor teardown. Reopening the unchanged diagram restores its draft.
 - Closing a pane using Obsidian's own tab-close button keeps its draft; it does not display the modal's confirmation dialog.
-- **ASCIIFlow: Recover latest drawing draft** creates a separate recovery note. Use this if the original diagram was moved, removed, or changed.
+- **Drawscii: Recover latest drawing draft** creates a separate recovery note. Use this if the original diagram was moved, removed, or changed.
 - Saving merges changes to an unchanged, uniquely identifiable diagram while preserving edits elsewhere in the note. Conflicting or ambiguous diagrams are rejected, with your drawing kept available.
 - **Copy drawing** copies the diagram with surrounding blank rows and columns cropped, ready to paste anywhere. **Export .txt** downloads the same cropped text. **Clear** asks first and can be undone.
 
@@ -70,11 +73,11 @@ Set your vault path, then copy the build:
 
 ```bash
 VAULT_PATH="/absolute/path/to/your/vault"
-mkdir -p "$VAULT_PATH/.obsidian/plugins/asciiflow"
-cp main.js manifest.json styles.css "$VAULT_PATH/.obsidian/plugins/asciiflow/"
+mkdir -p "$VAULT_PATH/.obsidian/plugins/drawscii"
+cp main.js manifest.json styles.css "$VAULT_PATH/.obsidian/plugins/drawscii/"
 ```
 
-Disable an existing ASCIIFlow installation before copying. This fork uses the same plugin ID, `asciiflow`. Restart Obsidian and enable ASCIIFlow under **Settings → Community plugins**. If your vault uses a custom configuration folder, substitute it for `.obsidian`.
+The plugin ID is `drawscii`. If you used this fork before the rename (plugin ID `asciiflow`), disable that plugin and copy its `data.json`, which holds your recovery drafts, into the new `drawscii` folder. Restart Obsidian and enable Drawscii under **Settings → Community plugins**. If your vault uses a custom configuration folder, substitute it for `.obsidian`.
 
 After changes, rebuild, copy the files again, and toggle the plugin off/on. `npm run dev` watches and rebuilds source files in the repository; it does not install or reload the plugin automatically. Keep the vault's `data.json` when updating so recovery drafts survive.
 
@@ -87,7 +90,7 @@ Requires Node.js 20+ and Rust 1.85+, plus the [Tauri prerequisites](https://taur
 ```bash
 npm ci
 npm run tauri dev     # run the app
-npm run tauri build   # build the installer, e.g. src-tauri/target/release/bundle/macos/ASCIIFlow.app
+npm run tauri build   # build the installer, e.g. src-tauri/target/release/bundle/macos/Drawscii.app
 ```
 
 `npm run tauri dev` starts a watcher that serves the editor on port 1420: saving a TypeScript or CSS file reloads the app window within a second, and Rust changes in `src-tauri/` rebuild and restart the app. `npm run tauri build` makes a minified bundle in `desktop-dist/` instead; `npm run build:desktop` does only that step.
@@ -112,13 +115,24 @@ The DOM tests mock canvas rendering and Obsidian is not present in that harness.
 ## Architecture
 
 - `src/main.tsx`: Obsidian commands, modal/pane lifecycle, draft persistence, note saves.
-- `src/ui/AsciiFlowApp.tsx`: editor controls, keyboard/clipboard handling, save and recovery UI.
+- `src/ui/DrawsciiApp.tsx`: editor controls, keyboard/clipboard handling, save and recovery UI.
 - `src/model/`: sparse grid, text serialization, line joining, shape recognition and note merging.
 - `src/tools/`: drawing tools, selection, labels and undo history.
 - `src/input/`: pointer, pan/zoom and coordinate mapping.
 - `src/renderer/`: canvas drawing, hover, selection and overwrite previews.
 
-MIT license. Based on [xvusrmqj/obsidian-asciiflow](https://github.com/xvusrmqj/obsidian-asciiflow).
+## Credits
+
+Drawscii stands on the work of others:
+
+- **[ASCIIFlow](https://asciiflow.com)** by **Lewis Hemens** ([lewish/asciiflow](https://github.com/lewish/asciiflow), MIT): the web editor for ASCII diagrams that defined this way of drawing and inspired the editor here.
+- **[obsidian-asciiflow](https://github.com/xvusrmqj/obsidian-asciiflow)** by **xvusrmqj** (MIT): the Obsidian plugin that brought an ASCIIFlow-style editor into Obsidian code blocks. Drawscii is a fork of it and builds on its editor, tools and code-block integration.
+
+Drawscii adds, among other things, the desktop app, connectors that stay attached to boxes, multi-selection, rotation, line styles and arrowhead styles.
+
+## License
+
+MIT. The original copyright notice of obsidian-asciiflow is kept in [LICENSE](LICENSE) alongside this fork's.
 
 ## Selection and action shortcuts
 

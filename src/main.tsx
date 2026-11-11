@@ -11,12 +11,18 @@ import {
 } from "obsidian";
 import React from "react";
 import { createRoot, Root } from "react-dom/client";
-import { mergeCodeBlock, replaceCodeBlock } from "./model/CodeBlock";
+import {
+  LANGUAGE,
+  LANGUAGES,
+  mergeCodeBlock,
+  OPENING_FENCE,
+  replaceCodeBlock,
+} from "./model/CodeBlock";
 import { drawingPreviewText } from "./model/Serializer";
-import { AsciiFlowApp, EditorHandle } from "./ui/AsciiFlowApp";
+import { DrawsciiApp, EditorHandle } from "./ui/DrawsciiApp";
 import { WideDiagram } from "./ui/WideDiagram";
 
-const VIEW_TYPE = "asciiflow-editor";
+const VIEW_TYPE = "drawscii-editor";
 type Draft = { text: string; path: string; source: string; start: number };
 type Session = {
   key: string;
@@ -27,12 +33,12 @@ type Session = {
   end: number;
 };
 
-class AsciiFlowModal extends Modal {
+class DrawsciiModal extends Modal {
   private root: Root | null = null;
   private editor: EditorHandle | null = null;
   private force = false;
   constructor(
-    private plugin: AsciiFlowPlugin,
+    private plugin: DrawsciiPlugin,
     private session: Session,
   ) {
     super(plugin.app);
@@ -44,7 +50,7 @@ class AsciiFlowModal extends Modal {
     });
   }
   onOpen() {
-    this.modalEl.addClass("asciiflow-modal");
+    this.modalEl.addClass("drawscii-modal");
     this.root = createRoot(this.contentEl);
     this.root.render(
       this.plugin.editor(
@@ -74,11 +80,11 @@ class AsciiFlowModal extends Modal {
     this.plugin.modals.delete(this);
   }
 }
-class AsciiFlowView extends ItemView {
+class DrawsciiView extends ItemView {
   private root: Root | null = null;
   constructor(
     leaf: WorkspaceLeaf,
-    private plugin: AsciiFlowPlugin,
+    private plugin: DrawsciiPlugin,
     public session?: Session,
   ) {
     super(leaf);
@@ -89,13 +95,13 @@ class AsciiFlowView extends ItemView {
   getDisplayText() {
     return this.session
       ? `Diagram · ${this.session.file.basename}`
-      : "ASCIIFlow";
+      : "Drawscii";
   }
   getIcon() {
     return "pencil-ruler";
   }
   async onOpen() {
-    this.contentEl.addClass("asciiflow-pane");
+    this.contentEl.addClass("drawscii-pane");
     if (!this.session) {
       this.contentEl.setText("Open a diagram using its Open in pane button.");
       return;
@@ -111,8 +117,8 @@ class AsciiFlowView extends ItemView {
     if (this.session) this.plugin.release(this.session);
   }
 }
-export default class AsciiFlowPlugin extends Plugin {
-  readonly modals = new Set<AsciiFlowModal>();
+export default class DrawsciiPlugin extends Plugin {
+  readonly modals = new Set<DrawsciiModal>();
   private drafts: Record<string, Draft> = {};
   private pendingViews = new Map<WorkspaceLeaf, Session>();
   private sessions = new Set<string>();
@@ -122,11 +128,13 @@ export default class AsciiFlowPlugin extends Plugin {
     this.drafts = data?.drafts ?? {};
     this.registerView(
       VIEW_TYPE,
-      (leaf) => new AsciiFlowView(leaf, this, this.pendingViews.get(leaf)),
+      (leaf) => new DrawsciiView(leaf, this, this.pendingViews.get(leaf)),
     );
-    this.registerMarkdownCodeBlockProcessor("asciiflow", (source, el, ctx) =>
-      this.renderBlock(source, el, ctx),
-    );
+    // Older notes use `asciiflow` blocks from before the rename; render both.
+    for (const language of LANGUAGES)
+      this.registerMarkdownCodeBlockProcessor(language, (source, el, ctx) =>
+        this.renderBlock(source, el, ctx),
+      );
     this.addCommand({
       id: "insert-diagram",
       name: "Insert ASCII diagram",
@@ -134,7 +142,7 @@ export default class AsciiFlowPlugin extends Plugin {
         if (!view.file) return;
         const pos = editor.getCursor(),
           prefix = pos.ch > 0 ? "\n" : "";
-        const block = prefix + "```asciiflow\n\n```\n";
+        const block = prefix + "```" + LANGUAGE + "\n\n```\n";
         editor.replaceRange(block, pos);
         editor.setCursor({ line: pos.line + (prefix ? 2 : 1), ch: 0 });
         const original = editor.getValue(),
@@ -154,10 +162,7 @@ export default class AsciiFlowPlugin extends Plugin {
         if (!view.file) return false;
         const cursor = editor.getCursor().line;
         let start = cursor;
-        while (
-          start >= 0 &&
-          !/^ {0,3}(`{3,}|~{3,})asciiflow\s*$/.test(editor.getLine(start))
-        )
+        while (start >= 0 && !OPENING_FENCE.test(editor.getLine(start)))
           start--;
         if (start < 0) return false;
         const fence = /(`{3,}|~{3,})/.exec(editor.getLine(start))![1];
@@ -215,7 +220,7 @@ export default class AsciiFlowPlugin extends Plugin {
         );
         const file = await this.app.vault.create(
           path,
-          `# Recovered ASCIIFlow drawing\n\n${fence}asciiflow\n${draft.text}\n${fence}\n`,
+          `# Recovered Drawscii drawing\n\n${fence}${LANGUAGE}\n${draft.text}\n${fence}\n`,
         );
         await leaf.openFile(file);
       },
@@ -247,12 +252,12 @@ export default class AsciiFlowPlugin extends Plugin {
   }
   private openSession(session: Session, pane: boolean) {
     if (this.sessions.has(session.key)) {
-      new Notice("This diagram is already open in an ASCIIFlow editor.");
+      new Notice("This diagram is already open in an Drawscii editor.");
       return;
     }
     this.sessions.add(session.key);
     if (!pane) {
-      const modal = new AsciiFlowModal(this, session);
+      const modal = new DrawsciiModal(this, session);
       this.modals.add(modal);
       modal.open();
       return;
@@ -317,7 +322,7 @@ export default class AsciiFlowPlugin extends Plugin {
         });
     };
     return (
-      <AsciiFlowApp
+      <DrawsciiApp
         initialText={session.source}
         draft={
           draft && normalize(draft.source) === normalize(session.source)
@@ -364,10 +369,10 @@ export default class AsciiFlowPlugin extends Plugin {
     el: HTMLElement,
     ctx: MarkdownPostProcessorContext,
   ) {
-    const container = el.createEl("figure", { cls: "asciiflow-preview" });
-    container.setAttribute("aria-label", "ASCIIFlow diagram");
+    const container = el.createEl("figure", { cls: "drawscii-preview" });
+    container.setAttribute("aria-label", "Drawscii diagram");
     ctx.addChild(new WideDiagram(el, container));
-    const bar = container.createDiv({ cls: "asciiflow-preview-actions" });
+    const bar = container.createDiv({ cls: "drawscii-preview-actions" });
     bar.setAttribute("role", "group");
     bar.setAttribute("aria-label", "Diagram actions");
     let editButton: HTMLButtonElement | undefined;
@@ -404,7 +409,7 @@ export default class AsciiFlowPlugin extends Plugin {
       });
     }
     const text = drawingPreviewText(source);
-    const viewport = container.createDiv({ cls: "asciiflow-diagram-viewport" });
+    const viewport = container.createDiv({ cls: "drawscii-diagram-viewport" });
     viewport.tabIndex = 0;
     viewport.setAttribute("role", "group");
     viewport.setAttribute(
@@ -420,7 +425,7 @@ export default class AsciiFlowPlugin extends Plugin {
         editButton?.click();
       }
     });
-    viewport.createDiv({ cls: "asciiflow-diagram-text", text });
+    viewport.createDiv({ cls: "drawscii-diagram-text", text });
     if (!text) {
       container.addClass("is-empty");
       viewport.setText("Empty diagram — choose Edit drawing to start.");

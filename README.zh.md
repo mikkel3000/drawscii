@@ -1,3 +1,7 @@
+> **注意：** 本文档描述的是 xvusrmqj 的原始插件 [obsidian-asciiflow](https://github.com/xvusrmqj/obsidian-asciiflow)。本仓库是其分支，现已更名为 **Drawscii**；最新说明请参阅 [README.md](README.md)。
+>
+> **Note:** This document describes the original [obsidian-asciiflow](https://github.com/xvusrmqj/obsidian-asciiflow) plugin by xvusrmqj. This repository is a fork of it, now named **Drawscii**; see [README.md](README.md) for current instructions.
+
 # Obsidian ASCIIFlow
 
 [English](README.md)

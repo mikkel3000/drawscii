@@ -26,7 +26,7 @@ export type EditorHandle = {
   resetTool: () => void;
   getText: () => string;
 };
-export type AsciiFlowAppProps = {
+export type DrawsciiAppProps = {
   initialText: string;
   draft?: string;
   onSave: (text: string) => Promise<void>;
@@ -86,7 +86,7 @@ const toolList: { id: ToolId; label: string; key: string; hint: string }[] = [
     hint: "Drag to erase · Choose a larger brush for larger areas",
   },
 ];
-export function AsciiFlowApp({
+export function DrawsciiApp({
   initialText,
   draft,
   onSave,
@@ -94,7 +94,7 @@ export function AsciiFlowApp({
   onDraft,
   onReady,
   standalone = false,
-}: AsciiFlowAppProps) {
+}: DrawsciiAppProps) {
   const [grid] = useState(() => gridFromText(draft ?? initialText));
   const [saved, setSaved] = useState(() =>
     gridToText(gridFromText(initialText)),
@@ -573,8 +573,8 @@ export function AsciiFlowApp({
       );
     const local = (event: Event) =>
       appRef.current?.contains(event.target as Node);
-    const keydown = (event: KeyboardEvent) => {
-      if (!local(event)) return;
+    const keydown = (event: KeyboardEvent, unfocused = false) => {
+      if (!unfocused && !local(event)) return;
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();
@@ -762,11 +762,22 @@ export function AsciiFlowApp({
     textarea.addEventListener("compositionstart", compositionStart);
     textarea.addEventListener("compositionend", compositionEnd);
     textarea.addEventListener("input", acceptText);
-    appRef.current!.addEventListener("keydown", keydown);
+    const appKeydown = (event: KeyboardEvent) => keydown(event);
+    appRef.current!.addEventListener("keydown", appKeydown);
     appRef.current!.addEventListener("paste", pasteEvent);
     appRef.current!.addEventListener("copy", clipboard);
     appRef.current!.addEventListener("cut", clipboard);
     const app = appRef.current!;
+    // In the desktop app the editor is the only thing to type into, so it
+    // also takes keys while nothing has focus. Obsidian keeps its own.
+    const doc = app.ownerDocument;
+    const pageKeydown = (event: KeyboardEvent) => {
+      if (event.target === doc.body || event.target === doc.documentElement)
+        keydown(event, true);
+    };
+    if (standalone) doc.addEventListener("keydown", pageKeydown);
+    // Shortcuts work as soon as the editor opens, without clicking it first.
+    canvas.focus({ preventScroll: true });
     return () => {
       if (pathBase) grid.loadFromGrid(pathBase);
       input.detach();
@@ -775,7 +786,8 @@ export function AsciiFlowApp({
       renderer.dispose();
       canvas.removeEventListener("dblclick", dblclick);
       canvas.removeEventListener("pointerdown", pick, true);
-      app.removeEventListener("keydown", keydown);
+      app.removeEventListener("keydown", appKeydown);
+      doc.removeEventListener("keydown", pageKeydown);
       app.removeEventListener("paste", pasteEvent);
       app.removeEventListener("copy", clipboard);
       app.removeEventListener("cut", clipboard);
@@ -827,10 +839,10 @@ export function AsciiFlowApp({
     setMessage("Exported diagram.txt.");
   };
   return (
-    <div className="asciiflow-app" ref={appRef}>
-      <div className="asciiflow-document-bar">
-        <strong>ASCIIFlow</strong>
-        <span className="asciiflow-save-state" role="status">
+    <div className="drawscii-app" ref={appRef}>
+      <div className="drawscii-document-bar">
+        <strong>Drawscii</strong>
+        <span className="drawscii-save-state" role="status">
           {saving
             ? "Saving…"
             : dirty
@@ -839,7 +851,7 @@ export function AsciiFlowApp({
                 : "Unsaved changes · draft kept"
               : "Saved"}
         </span>
-        <div className="asciiflow-spacer" />
+        <div className="drawscii-spacer" />
         <button
           onClick={() => setHelp(!help)}
           aria-expanded={help}
@@ -874,7 +886,7 @@ export function AsciiFlowApp({
         )}
       </div>
       <fieldset
-        className="asciiflow-toolbar"
+        className="drawscii-toolbar"
         disabled={saving || preview}
         aria-label="Drawing tools"
       >
@@ -917,7 +929,7 @@ export function AsciiFlowApp({
               aria-label="Drawing character"
               value={char}
               onChange={(e) => setChar(Array.from(e.target.value)[0] || "*")}
-              className="asciiflow-character"
+              className="drawscii-character"
             />
           </label>
         )}
@@ -981,11 +993,7 @@ export function AsciiFlowApp({
           </label>
         )}
       </fieldset>
-      <div
-        className="asciiflow-toolbar"
-        role="group"
-        aria-label="Edit and view"
-      >
+      <div className="drawscii-toolbar" role="group" aria-label="Edit and view">
         <button
           disabled={saving || preview || !managerRef.current?.canUndo}
           onClick={() => {
@@ -1090,7 +1098,7 @@ export function AsciiFlowApp({
         >
           Clear <kbd>X</kbd>
         </button>
-        <div className="asciiflow-spacer" />
+        <div className="drawscii-spacer" />
         <button
           onClick={() => actions.current.zoom(1 / 1.2)}
           aria-label="Zoom out"
@@ -1125,7 +1133,7 @@ export function AsciiFlowApp({
         </button>
       </div>
       {help && (
-        <div className="asciiflow-help">
+        <div className="drawscii-help">
           <strong>Draw, then refine.</strong> Double-click to type. Select a box
           or simple arrow to reveal resize handles. Shift changes connector
           bends. Waypoints: click each bend, hover the endpoint, Enter to
@@ -1146,10 +1154,13 @@ export function AsciiFlowApp({
           clears after confirmation. Action letters work when not typing a
           label. Plain text is available in Preview for keyboard and
           screen-reader access.
+          <br />
+          Drawscii is based on obsidian-asciiflow by xvusrmqj and inspired by
+          ASCIIFlow by Lewis Hemens.
         </div>
       )}
       {error && (
-        <div className="asciiflow-error" role="alert">
+        <div className="drawscii-error" role="alert">
           {error}
           <button onClick={() => setError("")}>Dismiss</button>
         </div>
@@ -1171,7 +1182,7 @@ export function AsciiFlowApp({
       )}
       {confirm && (
         <div
-          className="asciiflow-confirm"
+          className="drawscii-confirm"
           role="alertdialog"
           aria-label={confirm === "close" ? "Unsaved drawing" : "Clear drawing"}
         >
@@ -1220,7 +1231,7 @@ export function AsciiFlowApp({
         </div>
       )}
       <div
-        className="asciiflow-canvas-container"
+        className="drawscii-canvas-container"
         style={{ display: preview ? "none" : undefined }}
       >
         <canvas
@@ -1231,12 +1242,12 @@ export function AsciiFlowApp({
         />
         <textarea
           ref={textRef}
-          className="asciiflow-text-input"
+          className="drawscii-text-input"
           aria-label="Diagram label input"
           spellCheck={false}
         />
         {!text && !pending && (
-          <div className="asciiflow-empty">
+          <div className="drawscii-empty">
             Drag to draw your first box.
             <br />
             <small>Double-click to add a label. Press ? for help.</small>
@@ -1244,7 +1255,7 @@ export function AsciiFlowApp({
         )}
       </div>
       {preview && (
-        <div className="asciiflow-text-preview">
+        <div className="drawscii-text-preview">
           <label>
             Diagram as it will appear in your note
             <textarea
@@ -1256,7 +1267,7 @@ export function AsciiFlowApp({
           </label>
         </div>
       )}
-      <div className="asciiflow-status">
+      <div className="drawscii-status">
         <span>
           {pending
             ? "Preview: click or Enter to commit · Escape to cancel"
@@ -1269,7 +1280,7 @@ export function AsciiFlowApp({
               : "Arrow: drag endpoint handles"}
           </span>
         )}
-        <span className="asciiflow-feedback" role="status">
+        <span className="drawscii-feedback" role="status">
           {message}
         </span>
         <span>

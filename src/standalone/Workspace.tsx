@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { drawingPreviewText } from "../model/Serializer";
-import { AsciiFlowApp } from "../ui/AsciiFlowApp";
+import { DrawsciiApp } from "../ui/DrawsciiApp";
 import {
   cleanName,
   confirmDelete,
@@ -15,7 +15,7 @@ import {
   withExt,
 } from "./store";
 
-const LAST_FILE = "asciiflow:last-open";
+const LAST_FILE = "drawscii:last-open";
 const remember = (key: string, value: string) => {
   try {
     localStorage.setItem(key, value);
@@ -31,7 +31,7 @@ const recall = (key: string) => {
   }
 };
 const NO_ACCESS =
-  "ASCIIFlow has no access to part of this folder, usually because it was opened before subfolder access was granted.";
+  "Drawscii has no access to part of this folder, usually because it was opened before subfolder access was granted.";
 const message = (e: unknown, fallback: string) => {
   const text =
     e instanceof Error ? e.message : typeof e === "string" ? e : fallback;
@@ -87,9 +87,9 @@ function NameDialog({
     }
   };
   return (
-    <div className="asciiflow-name-backdrop" onMouseDown={onClose}>
+    <div className="drawscii-name-backdrop" onMouseDown={onClose}>
       <form
-        className="asciiflow-name-dialog"
+        className="drawscii-name-dialog"
         role="dialog"
         aria-label={naming.title}
         onMouseDown={(e) => e.stopPropagation()}
@@ -113,7 +113,7 @@ function NameDialog({
           />
         </label>
         {error && <p role="alert">{error}</p>}
-        <div className="asciiflow-name-buttons">
+        <div className="drawscii-name-buttons">
           <button type="button" onClick={onClose}>
             Cancel
           </button>
@@ -154,7 +154,7 @@ function ContextMenu({ menu, onClose }: { menu: Menu; onClose: () => void }) {
     };
   }, [menu, onClose]);
   return (
-    <div ref={ref} className="asciiflow-menu" role="menu" style={pos}>
+    <div ref={ref} className="drawscii-menu" role="menu" style={pos}>
       {menu.items.map((item, i) =>
         item === "-" ? (
           <hr key={i} />
@@ -530,7 +530,7 @@ export function Workspace() {
       // Dropping on a file moves next to it, like an IDE.
       const target = isFolder ? entry.path : parentOf(entry.path);
       const classes = [
-        "asciiflow-tree-row",
+        "drawscii-tree-row",
         active && "is-active",
         isFolder && dropTarget === entry.path && "is-drop",
         dragging?.path === entry.path && "is-dragging",
@@ -563,7 +563,7 @@ export function Workspace() {
             onContextMenu={(e) => showMenu(e, entry)}
           >
             <button
-              className="asciiflow-tree-label"
+              className="drawscii-tree-label"
               title={entry.path}
               onKeyDown={(e) => rowKeys(e, entry)}
               onClick={() => {
@@ -573,12 +573,12 @@ export function Workspace() {
                 } else if (store) void openFile(store, entry.path);
               }}
             >
-              <span className="asciiflow-tree-icon" aria-hidden>
+              <span className="drawscii-tree-icon" aria-hidden>
                 {isFolder ? (isOpen ? "▾" : "▸") : "◇"}
               </span>
               {baseName(entry)}
             </button>
-            <span className="asciiflow-tree-actions">
+            <span className="drawscii-tree-actions">
               {!isFolder && (
                 <button
                   onClick={() => void duplicateEntry(entry)}
@@ -614,15 +614,15 @@ export function Workspace() {
     });
 
   return (
-    <div className="asciiflow-workspace">
-      <aside className="asciiflow-sidebar" aria-label="Diagrams">
+    <div className="drawscii-workspace">
+      <aside className="drawscii-sidebar" aria-label="Diagrams">
         <div
-          className="asciiflow-sidebar-head"
+          className="drawscii-sidebar-head"
           onDragOver={(e) => dragOver(e, "")}
           onDrop={(e) => drop(e, "")}
         >
           <strong title={store?.root}>{store?.label ?? "No folder"}</strong>
-          <span className="asciiflow-spacer" />
+          <span className="drawscii-spacer" />
           {store && (
             <>
               <button
@@ -650,7 +650,7 @@ export function Workspace() {
           )}
         </div>
         <ul
-          className={`asciiflow-tree${dropTarget === "" ? " is-drop" : ""}`}
+          className={`drawscii-tree${dropTarget === "" ? " is-drop" : ""}`}
           role="tree"
           onDragOver={(e) => dragOver(e, "")}
           onDragLeave={(e) => {
@@ -666,13 +666,13 @@ export function Workspace() {
         >
           {renderEntries(tree, 0)}
           {store && !tree.length && (
-            <li className="asciiflow-sidebar-empty">
+            <li className="drawscii-sidebar-empty">
               No .txt diagrams here yet. Use ＋ or right-click to create one.
             </li>
           )}
         </ul>
         {error && (
-          <div className="asciiflow-sidebar-error" role="alert">
+          <div className="drawscii-sidebar-error" role="alert">
             <p>{error}</p>
             {error === NO_ACCESS && store && (
               <button
@@ -684,15 +684,15 @@ export function Workspace() {
             )}
           </div>
         )}
-        <div className="asciiflow-sidebar-foot">
+        <div className="drawscii-sidebar-foot">
           <button onClick={() => void chooseFolder()}>
             {store ? "Open another folder…" : "Open folder…"}
           </button>
         </div>
       </aside>
-      <main className="asciiflow-workspace-editor">
+      <main className="drawscii-workspace-editor">
         {store && open ? (
-          <AsciiFlowApp
+          <DrawsciiApp
             key={`${store.root}:${open.path}`}
             standalone
             initialText={open.text}
@@ -700,7 +700,7 @@ export function Workspace() {
             onCancel={() => {}}
           />
         ) : (
-          <div className="asciiflow-workspace-empty">
+          <div className="drawscii-workspace-empty">
             {store ? (
               <>
                 <p>Open a diagram from the sidebar, or create a new one.</p>

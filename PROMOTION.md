@@ -1,3 +1,5 @@
+> **Note:** This is the original announcement text for [obsidian-asciiflow](https://github.com/xvusrmqj/obsidian-asciiflow) by xvusrmqj, kept for reference. This repository is a fork of it, now named **Drawscii**; see [README.md](README.md).
+
 # 推广文案
 
 ## 1. Twitter/X 推文（英文）

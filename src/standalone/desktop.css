@@ -69,11 +69,11 @@ button.mod-cta {
   border-color: transparent;
 }
 
-.asciiflow-workspace {
+.drawscii-workspace {
   display: flex;
   height: 100%;
 }
-.asciiflow-sidebar {
+.drawscii-sidebar {
   width: 240px;
   flex: none;
   display: flex;
@@ -83,47 +83,47 @@ button.mod-cta {
   border-right: 1px solid var(--background-modifier-border);
   font-size: 13px;
 }
-.asciiflow-sidebar-head {
+.drawscii-sidebar-head {
   display: flex;
   align-items: center;
   gap: 4px;
   padding: 8px;
   border-bottom: 1px solid var(--background-modifier-border);
 }
-.asciiflow-sidebar-head strong {
+.drawscii-sidebar-head strong {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.asciiflow-sidebar-head button {
+.drawscii-sidebar-head button {
   padding: 2px 7px;
 }
-.asciiflow-spacer {
+.drawscii-spacer {
   flex: 1;
 }
-.asciiflow-tree,
-.asciiflow-tree ul {
+.drawscii-tree,
+.drawscii-tree ul {
   list-style: none;
   margin: 0;
   padding: 0;
 }
-.asciiflow-tree {
+.drawscii-tree {
   flex: 1;
   overflow: auto;
   padding: 6px 0;
 }
-.asciiflow-tree-row {
+.drawscii-tree-row {
   display: flex;
   align-items: center;
   padding-right: 6px;
 }
-.asciiflow-tree-row:hover {
+.drawscii-tree-row:hover {
   background: var(--background-primary);
 }
-.asciiflow-tree-row.is-active {
+.drawscii-tree-row.is-active {
   background: color-mix(in srgb, var(--interactive-accent) 22%, transparent);
 }
-.asciiflow-tree-label {
+.drawscii-tree-label {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -137,49 +137,49 @@ button.mod-cta {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.asciiflow-tree-icon {
+.drawscii-tree-icon {
   width: 10px;
   flex: none;
   color: var(--text-muted);
 }
-.asciiflow-tree-actions {
+.drawscii-tree-actions {
   display: none;
   gap: 2px;
 }
-.asciiflow-tree-row:hover .asciiflow-tree-actions,
-.asciiflow-tree-row:focus-within .asciiflow-tree-actions {
+.drawscii-tree-row:hover .drawscii-tree-actions,
+.drawscii-tree-row:focus-within .drawscii-tree-actions {
   display: flex;
 }
-.asciiflow-tree-actions button {
+.drawscii-tree-actions button {
   padding: 2px 5px;
   background: none;
   border: 0;
   color: var(--text-muted);
 }
-.asciiflow-tree-actions button:hover {
+.drawscii-tree-actions button:hover {
   color: var(--text-normal);
 }
-.asciiflow-sidebar-empty,
-.asciiflow-sidebar-error {
+.drawscii-sidebar-empty,
+.drawscii-sidebar-error {
   margin: 8px;
   color: var(--text-muted);
 }
-.asciiflow-sidebar-error {
+.drawscii-sidebar-error {
   color: var(--text-error);
 }
-.asciiflow-sidebar-foot {
+.drawscii-sidebar-foot {
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding: 8px;
   border-top: 1px solid var(--background-modifier-border);
 }
-.asciiflow-workspace-editor {
+.drawscii-workspace-editor {
   flex: 1;
   min-width: 0;
   height: 100%;
 }
-.asciiflow-workspace-empty {
+.drawscii-workspace-empty {
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -189,7 +189,7 @@ button.mod-cta {
   color: var(--text-muted);
 }
 
-.asciiflow-name-backdrop {
+.drawscii-name-backdrop {
   position: fixed;
   inset: 0;
   display: flex;
@@ -199,7 +199,7 @@ button.mod-cta {
   background: rgb(0 0 0 / 0.35);
   z-index: 100;
 }
-.asciiflow-name-dialog {
+.drawscii-name-dialog {
   width: min(360px, calc(100vw - 32px));
   display: flex;
   flex-direction: column;
@@ -210,48 +210,48 @@ button.mod-cta {
   border-radius: 8px;
   box-shadow: 0 10px 30px rgb(0 0 0 / 0.3);
 }
-.asciiflow-name-dialog label {
+.drawscii-name-dialog label {
   display: flex;
   flex-direction: column;
   gap: 6px;
   font-weight: 600;
 }
-.asciiflow-name-dialog input {
+.drawscii-name-dialog input {
   padding: 6px 8px;
   font-weight: normal;
 }
-.asciiflow-name-dialog p {
+.drawscii-name-dialog p {
   margin: 0;
   color: var(--text-error);
 }
-.asciiflow-name-buttons {
+.drawscii-name-buttons {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
 }
 
 /* Drag and drop */
-.asciiflow-tree-row.is-dragging {
+.drawscii-tree-row.is-dragging {
   opacity: 0.45;
 }
-.asciiflow-tree.is-drop,
-.asciiflow-tree li.is-drop-zone {
+.drawscii-tree.is-drop,
+.drawscii-tree li.is-drop-zone {
   background: color-mix(in srgb, var(--interactive-accent) 10%, transparent);
 }
-.asciiflow-tree.is-drop {
+.drawscii-tree.is-drop {
   outline: 1px dashed var(--interactive-accent);
   outline-offset: -3px;
 }
-.asciiflow-tree-row.is-drop {
+.drawscii-tree-row.is-drop {
   background: color-mix(in srgb, var(--interactive-accent) 28%, transparent);
 }
-.asciiflow-tree li.asciiflow-sidebar-empty {
+.drawscii-tree li.drawscii-sidebar-empty {
   margin: 8px;
   color: var(--text-muted);
 }
 
 /* Context menu */
-.asciiflow-menu {
+.drawscii-menu {
   position: fixed;
   z-index: 200;
   min-width: 160px;
@@ -264,32 +264,32 @@ button.mod-cta {
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
   font-size: 13px;
 }
-.asciiflow-menu button {
+.drawscii-menu button {
   text-align: left;
   background: none;
   border: 0;
   border-radius: 4px;
   padding: 5px 10px;
 }
-.asciiflow-menu button:hover,
-.asciiflow-menu button:focus-visible {
+.drawscii-menu button:hover,
+.drawscii-menu button:focus-visible {
   background: color-mix(in srgb, var(--interactive-accent) 18%, transparent);
   outline: none;
 }
-.asciiflow-menu button.is-danger {
+.drawscii-menu button.is-danger {
   color: var(--text-error);
 }
-.asciiflow-menu hr {
+.drawscii-menu hr {
   width: 100%;
   margin: 4px 0;
   border: 0;
   border-top: 1px solid var(--background-modifier-border);
 }
-div.asciiflow-sidebar-error {
+div.drawscii-sidebar-error {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
-div.asciiflow-sidebar-error p {
+div.drawscii-sidebar-error p {
   margin: 0;
 }

@@ -1,3 +1,10 @@
+/** Code block language for new diagrams. */
+export const LANGUAGE = "drawscii";
+/** Languages rendered and edited as diagrams; `asciiflow` is from before the rename. */
+export const LANGUAGES = [LANGUAGE, "asciiflow"];
+/** An opening fence of a diagram block: indent, fence and language. */
+export const OPENING_FENCE = /^( {0,3})(`{3,}|~{3,})(drawscii|asciiflow)\s*$/;
+
 /** Prepare an edit against an exact note snapshot; never guess a shifted block. */
 export function replaceCodeBlock(
   text: string,
@@ -8,15 +15,14 @@ export function replaceCodeBlock(
 ): string {
   const newline = text.includes("\r\n") ? "\r\n" : "\n";
   const lines = text.split(/\r?\n/);
-  const opening = /^( {0,3})(`{3,}|~{3,})asciiflow\s*$/.exec(
-    lines[start] ?? "",
-  );
+  const opening = OPENING_FENCE.exec(lines[start] ?? "");
   if (!opening || end <= start || end >= lines.length) {
     throw new Error(
       "Could not locate this diagram. Reopen the note and try again.",
     );
   }
-  const [, indent, fence] = opening;
+  // Keep the block's own language, so older `asciiflow` notes stay as they are.
+  const [, indent, fence, language] = opening;
   const closing = new RegExp(`^ {0,3}${fence[0]}{${fence.length},}\\s*$`);
   const normalize = (value: string) =>
     value.replace(/\r\n/g, "\n").replace(/\n$/, "");
@@ -35,7 +41,7 @@ export function replaceCodeBlock(
   }
   const delimiter = fence[0].repeat(fenceLength);
   const replacement = [
-    `${indent}${delimiter}asciiflow`,
+    `${indent}${delimiter}${language}`,
     ...content.split(/\r?\n/).map((line) => indent + line),
     `${indent}${delimiter}`,
   ];

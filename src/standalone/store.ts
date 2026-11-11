@@ -104,7 +104,7 @@ export class FolderStore {
   }
 }
 
-const LAST_FOLDER = "asciiflow:folder";
+const LAST_FOLDER = "drawscii:folder";
 
 export async function pickFolder(
   defaultPath?: string,

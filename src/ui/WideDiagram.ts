@@ -41,7 +41,7 @@ export class WideDiagram extends MarkdownRenderChild {
         0,
         Math.floor(Math.min(column.left - left, right - column.right)),
       );
-      this.figure.style.setProperty("--asciiflow-gutter", `${extra}px`);
+      this.figure.style.setProperty("--drawscii-gutter", `${extra}px`);
     };
     const observer = new ResizeObserver(update);
     observer.observe(pane);

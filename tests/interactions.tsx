@@ -2,9 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
 import React, { act } from "react";
-import { AsciiFlowApp, EditorHandle } from "../src/ui/AsciiFlowApp";
+import { DrawsciiApp, EditorHandle } from "../src/ui/DrawsciiApp";
 
-async function editor(initialText = "", draft?: string) {
+async function editor(initialText = "", draft?: string, standalone = false) {
   const dom = new JSDOM('<!doctype html><body><div id="root"></div></body>', {
     url: "http://localhost",
     pretendToBeVisual: true,
@@ -61,9 +61,10 @@ async function editor(initialText = "", draft?: string) {
     fail = false;
   await act(async () =>
     root.render(
-      <AsciiFlowApp
+      <DrawsciiApp
         initialText={initialText}
         draft={draft}
+        standalone={standalone}
         onReady={(h) => {
           handle = h;
         }}
@@ -345,4 +346,36 @@ test("copy and cut populate the clipboard before removal", async () => {
   } finally {
     await e.dispose();
   }
+});
+
+test("tool shortcuts work before the canvas is clicked", async () => {
+  const pressed = (e: Awaited<ReturnType<typeof editor>>, label: string) =>
+    [...e.w.document.querySelectorAll("button[aria-pressed]")]
+      .find((b) => b.textContent?.startsWith(label))
+      ?.getAttribute("aria-pressed");
+  const press = (
+    e: Awaited<ReturnType<typeof editor>>,
+    target: Element,
+    key: string,
+  ) =>
+    act(async () => {
+      target.dispatchEvent(
+        new e.w.KeyboardEvent("keydown", {
+          key,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+  // The editor takes focus when it opens, so a shortcut works straight away.
+  const e = await editor();
+  assert.equal(e.w.document.activeElement, e.canvas);
+  await press(e, e.w.document.activeElement!, "l");
+  assert.equal(pressed(e, "Line"), "true");
+  // In the desktop app it also answers keys while nothing has focus.
+  const d = await editor("", undefined, true);
+  (d.w.document.activeElement as HTMLElement).blur();
+  assert.equal(d.w.document.activeElement, d.w.document.body);
+  await press(d, d.w.document.body, "a");
+  assert.equal(pressed(d, "Arrow"), "true");
 });

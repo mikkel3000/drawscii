@@ -807,3 +807,18 @@ test("drag-selecting picks whole arrows and labels but not lines passing through
     ].join("\n"),
   );
 });
+
+test("diagram blocks keep their own language: new drawscii and older asciiflow", () => {
+  assert.equal(
+    replaceCodeBlock("```drawscii\nold\n```", 0, 2, "old", "new"),
+    "```drawscii\nnew\n```",
+  );
+  // Notes from before the rename keep their asciiflow fence when saved.
+  assert.equal(
+    replaceCodeBlock("```asciiflow\nold\n```", 0, 2, "old", "new"),
+    "```asciiflow\nnew\n```",
+  );
+  assert.throws(() =>
+    replaceCodeBlock("```mermaid\nold\n```", 0, 2, "old", "new"),
+  );
+});

@@ -1,10 +1,10 @@
 {
-  "id": "asciiflow",
-  "name": "ASCIIFlow",
+  "id": "drawscii",
+  "name": "Drawscii",
   "version": "1.0.0",
   "minAppVersion": "1.5.0",
-  "description": "Draw ASCII art diagrams directly in code blocks with an interactive editor.",
-  "author": "xvusrmqj",
-  "authorUrl": "https://github.com/xvusrmqj",
+  "description": "Draw text diagrams in code blocks with an interactive editor. Based on obsidian-asciiflow by xvusrmqj.",
+  "author": "mikkel3000",
+  "authorUrl": "https://github.com/mikkel3000",
   "isDesktopOnly": false
 }

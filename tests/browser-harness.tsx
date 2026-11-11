@@ -1,6 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { AsciiFlowApp, EditorHandle } from "../src/ui/AsciiFlowApp";
+import { DrawsciiApp, EditorHandle } from "../src/ui/DrawsciiApp";
 const state = window as unknown as {
   saved?: string;
   draft?: string | null;
@@ -10,7 +10,7 @@ const state = window as unknown as {
   initial?: string;
 };
 createRoot(document.getElementById("root")!).render(
-  <AsciiFlowApp
+  <DrawsciiApp
     initialText={new URLSearchParams(location.search).get("initial") ?? ""}
     onReady={(handle) => {
       state.editor = handle;

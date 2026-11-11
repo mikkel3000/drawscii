@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const directory = await mkdtemp(
-  join(process.cwd(), "node_modules/.asciiflow-tests-"),
+  join(process.cwd(), "node_modules/.drawscii-tests-"),
 );
 try {
   const outfile = join(directory, "regressions.cjs");
