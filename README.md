@@ -122,7 +122,7 @@ MIT license. Based on [xvusrmqj/obsidian-asciiflow](https://github.com/xvusrmqj/
 
 ## Selection and action shortcuts
 
-Smart selection is enabled by default. Click a box border, label, connector, or connected freehand object to select it. Drag across a label and a partial border to select only the label. Turn **Smart selection** off for literal rectangular cell selection.
+Smart selection is enabled by default. Click a box border, label, connector, or connected freehand object to select it. Drag a rectangle to select every object that lies entirely inside it: labels, arrows, lines, boxes and freehand shapes. Objects that reach outside the rectangle, such as long lines passing through, are left out, and an arrow crossing such a line is cut out at the crossing so the line stays whole. Turn **Smart selection** off for literal rectangular cell selection.
 
 **Connectors stay attached.** Moving or resizing a box redraws the lines and arrows attached to its border, keeping their heads and line style. They leave the box at a right angle and bend where needed. A connector between two boxes that move together travels with them unchanged. Duplicating (⌘/Ctrl-drag) leaves connectors with the original. A connector that branches is left as it is.
 

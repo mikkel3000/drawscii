@@ -80,16 +80,22 @@ function trace(
     if (isTip(value) && cells.length > 1)
       return { cells, anchored: false, farMoves: false };
     const mask = strokes[value] ?? 0;
-    // A junction further along belongs to another line: stop there.
-    if (cells.length > 1 && bitCount(mask) > 2)
+    const arrived = {
+      row: current.row - previous.row,
+      col: current.col - previous.col,
+    };
+    // Cross another line straight on; any other junction belongs to it: stop.
+    const crossing = cells.length > 1 && mask === (N | E | S | W);
+    if (cells.length > 1 && bitCount(mask) > 2 && !crossing)
       return { cells, anchored: true, farMoves: false };
-    const onward = step.filter(
-      ([bit, d]) =>
-        mask & bit &&
-        !(
-          current.row + d.row === previous.row &&
-          current.col + d.col === previous.col
-        ),
+    const onward = step.filter(([bit, d]) =>
+      crossing
+        ? d.row === arrived.row && d.col === arrived.col
+        : mask & bit &&
+          !(
+            current.row + d.row === previous.row &&
+            current.col + d.col === previous.col
+          ),
     );
     if (onward.length > 1) return null;
     if (!onward.length) return { cells, anchored: false, farMoves: false };
@@ -165,6 +171,17 @@ export function findAttachments(
   return result;
 }
 
+/** The crossed line left at a crossing once a connector along `horizontal` is removed. */
+function crossedLine(value: string, horizontal: boolean) {
+  return horizontal
+    ? "╫╬".includes(value)
+      ? "║"
+      : "│"
+    : "╪╬".includes(value)
+      ? "═"
+      : "─";
+}
+
 /** Remove the parts of attached connectors that will be redrawn. */
 export function detach(grid: Grid, attachments: Attachment[]) {
   for (const a of attachments)
@@ -174,17 +191,56 @@ export function detach(grid: Grid, attachments: Attachment[]) {
       // Keep the box border, junctions on other lines, and moving cells.
       if (end && a.onBorder) return;
       if (far && (a.anchored || a.farMoves)) return;
+      // Where the connector crossed another line, leave that line whole.
+      const value = grid.getCell(p.row, p.col);
+      if (strokes[value] === (N | E | S | W) && !far && !end) {
+        const next = a.path[i + 1];
+        grid.setCell(p.row, p.col, crossedLine(value, next.row === p.row));
+        return;
+      }
       grid.setCell(p.row, p.col, "");
     });
 }
 
 /** An orthogonal path whose ends leave along the given axes. */
 function orthogonal(
+  grid: Grid,
   a: Point,
   b: Point,
   startAxis: "h" | "v",
   endAxis: "h" | "v",
 ): Point[] {
+  /**
+   * The bend's middle segment, as near the midpoint as possible without
+   * running along existing drawing (it may still cross it).
+   */
+  const middle = (from: number, to: number, clear: (at: number) => boolean) => {
+    const mid = Math.round((from + to) / 2);
+    const lo = Math.min(from, to),
+      hi = Math.max(from, to);
+    for (let offset = 0; offset <= hi - lo; offset++)
+      for (const at of [mid - offset, mid + offset])
+        if (at >= lo && at <= hi && clear(at)) return at;
+    return mid;
+  };
+  const emptyColumn = (col: number) => {
+    for (
+      let row = Math.min(a.row, b.row) + 1;
+      row < Math.max(a.row, b.row);
+      row++
+    )
+      if (grid.getCell(row, col)) return false;
+    return true;
+  };
+  const emptyRow = (row: number) => {
+    for (
+      let col = Math.min(a.col, b.col) + 1;
+      col < Math.max(a.col, b.col);
+      col++
+    )
+      if (grid.getCell(row, col)) return false;
+    return true;
+  };
   let vertices: Point[];
   if (startAxis !== endAxis)
     vertices = [
@@ -195,10 +251,10 @@ function orthogonal(
       b,
     ];
   else if (startAxis === "h") {
-    const mid = Math.round((a.col + b.col) / 2);
+    const mid = middle(a.col, b.col, emptyColumn);
     vertices = [a, { row: a.row, col: mid }, { row: b.row, col: mid }, b];
   } else {
-    const mid = Math.round((a.row + b.row) / 2);
+    const mid = middle(a.row, b.row, emptyRow);
     vertices = [a, { row: mid, col: a.col }, { row: mid, col: b.col }, b];
   }
   const path: Point[] = [];
@@ -233,7 +289,11 @@ export function reattach(
       // Both ends move together: carry the connector along unchanged.
       old.forEach((p, i) => {
         if (i === 0 || (i === old.length - 1 && a.onBorder)) return;
-        grid.setCell(p.row + shift.row, p.col + shift.col, a.values[i]);
+        let value = a.values[i];
+        // A crossing stays behind with the crossed line; carry only our stroke.
+        if (strokes[value] === (N | E | S | W))
+          value = crossedLine(value, old[i + 1]?.row !== p.row);
+        grid.setCell(p.row + shift.row, p.col + shift.col, value);
       });
       continue;
     }
@@ -242,7 +302,7 @@ export function reattach(
     const path =
       far.row === end.row && far.col === end.col
         ? [end]
-        : orthogonal(far, end, farAxis, endAxis);
+        : orthogonal(grid, far, end, farAxis, endAxis);
     if (path.length < 2) continue;
     drawPath(grid, path, false);
     setArrowHeads(grid, path, a.heads, a.shape);

@@ -36,7 +36,7 @@ export function enclosingBox(grid: Grid, point: Point) {
   return boxes(grid).find((r) => inside(point, r)) ?? null;
 }
 export type SelectedCell = Point & { value?: string; restore?: string };
-export type SmartRegion = Rect & { cells?: SelectedCell[] };
+export type SmartRegion = Rect & { cells?: SelectedCell[]; multi?: boolean };
 export function smartRegion(grid: Grid, point: Point): SmartRegion | null {
   const value = grid.getCell(point.row, point.col);
   if (!value) return null;
@@ -111,9 +111,14 @@ export function smartRegion(grid: Grid, point: Point): SmartRegion | null {
   if (box && !arrow && !(masks(point) & ~borderMask(point, box))) return box;
   // Include attachment cells, but stop traversal at the box perimeter.
   // Keep each cell's original border stroke so moving a connector repairs it.
-  const stack = [point],
+  // Each entry remembers the direction it was entered from (0 for the click).
+  const stack: [Point, number][] = [[point, 0]],
     seen = new Set<string>(),
+    crossed = new Set<string>(),
     cells: SelectedCell[] = [];
+  // At a crossing, keep only the clicked line's stroke; the other is restored.
+  const crossing = (ch: string, vertical: boolean) =>
+    vertical ? ("╫╬".includes(ch) ? "║" : "│") : "╪╬".includes(ch) ? "═" : "─";
   const steps = [
     [-1, 0, 1, 4],
     [1, 0, 4, 1],
@@ -121,11 +126,27 @@ export function smartRegion(grid: Grid, point: Point): SmartRegion | null {
     [0, 1, 2, 8],
   ];
   while (stack.length) {
-    const p = stack.pop()!,
+    const [p, entered] = stack.pop()!,
       key = Grid.key(p.row, p.col);
     if (seen.has(key)) continue;
+    const ch = grid.getCell(p.row, p.col);
+    if (!isBorder(ch)) continue;
+    // Pass straight through a crossing instead of spreading onto the other
+    // line. It stays unseen, so the crossing line can pass through it too.
+    if (entered && masks(p) === 15 && !allBoxes.some((r) => boundary(p, r))) {
+      if (crossed.has(key)) continue;
+      crossed.add(key);
+      const vertical = !!(entered & 5);
+      cells.push({
+        ...p,
+        value: crossing(ch, vertical),
+        restore: crossing(ch, !vertical),
+      });
+      const [dr, dc] = steps.find(([, , bit]) => bit === entered)!;
+      stack.push([{ row: p.row + dr, col: p.col + dc }, entered]);
+      continue;
+    }
     seen.add(key);
-    if (!isBorder(grid.getCell(p.row, p.col))) continue;
     const attached = allBoxes.find((r) => boundary(p, r));
     if (attached) {
       const base = borderMask(p, attached),
@@ -140,7 +161,7 @@ export function smartRegion(grid: Grid, point: Point): SmartRegion | null {
     for (const [dr, dc, bit, opposite] of steps) {
       const next = { row: p.row + dr, col: p.col + dc };
       if (attached && boundary(next, attached)) continue;
-      if (masks(p) & bit && masks(next) & opposite) stack.push(next);
+      if (masks(p) & bit && masks(next) & opposite) stack.push([next, bit]);
     }
   }
   return cells.length ? { ...bounds(cells), cells } : null;
@@ -166,4 +187,61 @@ export function textRegion(grid: Grid, rect: Rect): SmartRegion {
   )
     return rect;
   return { ...bounds(cells), cells };
+}
+
+/**
+ * A drag-selection: every object (label, connector, box, freehand shape) that
+ * lies entirely inside `rect`. Objects reaching outside it, such as long
+ * lines passing through, are left out. With nothing whole inside, the plain
+ * rectangle is kept.
+ */
+export function containedRegion(grid: Grid, rect: Rect): SmartRegion {
+  const within = (p: Point) => inside(p, rect);
+  const drawn: Point[] = [];
+  grid.forEachCell((p) => {
+    if (within(p)) drawn.push({ row: p.row, col: p.col });
+  });
+  if (!drawn.length) return rect;
+  const picked = new Map<string, SelectedCell>();
+  const started = new Set<string>();
+  const add = (p: SelectedCell) => {
+    const key = Grid.key(p.row, p.col),
+      had = picked.get(key);
+    // Both lines of a crossing are selected: keep the crossing itself.
+    if (had && (had.restore !== undefined || p.restore !== undefined))
+      picked.set(key, { row: p.row, col: p.col });
+    else if (!had) picked.set(key, p);
+  };
+  const nonEmpty = (r: Rect) => {
+    const cells: Point[] = [];
+    grid.forEachCell((p) => {
+      if (inside(p, r)) cells.push({ row: p.row, col: p.col });
+    });
+    return cells;
+  };
+  // Whole boxes, with everything drawn inside them.
+  for (const box of boxes(grid)) {
+    if (
+      !within({ row: box.startRow, col: box.startCol }) ||
+      !within({ row: box.endRow, col: box.endCol })
+    )
+      continue;
+    for (const p of nonEmpty(box)) {
+      add(p);
+      started.add(Grid.key(p.row, p.col));
+    }
+  }
+  // Every other object, found from each cell it has inside the rectangle.
+  for (const p of drawn) {
+    const key = Grid.key(p.row, p.col);
+    if (started.has(key)) continue;
+    const region = smartRegion(grid, p);
+    if (!region) continue;
+    const cells: SelectedCell[] = region.cells ?? nonEmpty(region);
+    for (const c of cells) started.add(Grid.key(c.row, c.col));
+    if (cells.every(within)) cells.forEach(add);
+  }
+  if (!picked.size) return rect;
+  const cells = [...picked.values()];
+  return { ...bounds(cells), cells, multi: true };
 }

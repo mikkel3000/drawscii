@@ -21,7 +21,7 @@ import {
   boxes,
   enclosingBox,
   smartRegion,
-  textRegion,
+  containedRegion,
   isBorder,
   SelectedCell,
 } from "../model/SmartSelection";
@@ -326,7 +326,7 @@ export class SelectTool implements ITool {
         state.row === state.startRow && state.col === state.startCol;
       this.selection = clicked
         ? (smartRegion(ctx.grid, state) ?? this.selection)
-        : textRegion(ctx.grid, this.normalized());
+        : containedRegion(ctx.grid, this.normalized());
     }
     this.selecting = false;
     this.drawHighlight();

@@ -692,3 +692,118 @@ test("connectors follow the sides of a resized box", () => {
     ].join("\n"),
   );
 });
+
+test("selecting a line that crosses another selects only that line", () => {
+  const grid = new Grid(1, 1);
+  drawPath(grid, route({ row: 2, col: 0 }, { row: 2, col: 8 }), true);
+  drawPath(grid, route({ row: 0, col: 4 }, { row: 4, col: 4 }));
+  assert.equal(gridToText(grid), "    │\n    │\n────┼───►\n    │\n    │");
+  const manager = new ToolManager(grid, () => {});
+  const select = manager.getSelectTool();
+  manager.setActiveTool("select");
+  manager.handlePointerDown(pointer(2, 1));
+  manager.handlePointerUp(pointer(2, 1));
+  const rows = new Set(select.normalized().cells!.map((p) => p.row));
+  assert.deepEqual([...rows], [2]);
+  // Moving the arrow away leaves the crossed line whole.
+  manager.edit((ctx) => select.nudge(3, 0, ctx));
+  assert.equal(
+    gridToText(grid),
+    "    │\n    │\n    │\n    │\n    │\n────────►",
+  );
+  // And the vertical line is selectable on its own as well.
+  manager.undo();
+  manager.handlePointerDown(pointer(0, 4));
+  manager.handlePointerUp(pointer(0, 4));
+  const cols = new Set(select.normalized().cells!.map((p) => p.col));
+  assert.deepEqual([...cols], [4]);
+});
+
+test("an attached connector re-routes through a line it crosses", () => {
+  const grid = new Grid(1, 1);
+  drawBox(grid, { startRow: 0, startCol: 0, endRow: 2, endCol: 4 });
+  drawPath(grid, route({ row: 1, col: 4 }, { row: 1, col: 12 }), true);
+  drawPath(grid, route({ row: 0, col: 8 }, { row: 6, col: 8 }));
+  assert.equal(
+    gridToText(grid),
+    "┌───┐   │\n│   ├───┼───►\n└───┘   │\n        │\n        │\n        │\n        │",
+  );
+  const manager = new ToolManager(grid, () => {});
+  manager.setActiveTool("select");
+  manager.handlePointerDown(pointer(0, 2));
+  manager.handlePointerUp(pointer(0, 2));
+  manager.edit((ctx) => manager.getSelectTool().nudge(4, 0, ctx));
+  // The arrow keeps its far end, bends beside the crossed line rather than
+  // along it, and crosses it cleanly; the line is whole where the arrow left.
+  assert.equal(
+    gridToText(grid),
+    [
+      "        │",
+      "       ┌┼───►",
+      "       ││",
+      "       ││",
+      "┌───┐  ││",
+      "│   ├──┘│",
+      "└───┘   │",
+    ].join("\n"),
+  );
+});
+
+test("drag-selecting picks whole arrows and labels but not lines passing through", () => {
+  const grid = gridFromText(
+    [
+      "      ╔═══════╦═══════╗",
+      "      ║ A     ║ B     ║",
+      "      ╚═══╦═══╩═══╦═══╝",
+      "          │       │",
+      "Event     │ Ask   │",
+      "─────────►│ ────► │",
+      "          │ ──────┼───►",
+      "          │       │",
+      "          │       │",
+    ].join("\n"),
+    1,
+    1,
+  );
+  const manager = new ToolManager(grid, () => {});
+  const select = manager.getSelectTool();
+  manager.setActiveTool("select");
+  // Drag from above "Event" to below the arrows, across both lifelines.
+  manager.handlePointerDown(pointer(4, 0));
+  manager.handlePointerMove({
+    ...pointer(7, 23),
+    startRow: 4,
+    startCol: 0,
+    isDragging: true,
+  });
+  manager.handlePointerUp({
+    ...pointer(7, 23),
+    startRow: 4,
+    startCol: 0,
+    isDragging: true,
+  });
+  const picked = new Set(
+    select.normalized().cells!.map((p) => `${p.row}:${p.col}`),
+  );
+  for (const p of ["4:0", "4:12", "5:0", "5:9", "5:12", "5:16", "6:12", "6:22"])
+    assert.ok(picked.has(p), `includes ${p}`);
+  // The lifelines run outside the rectangle, so they are not selected.
+  for (const p of ["3:10", "4:10", "7:10", "7:18"])
+    assert.ok(!picked.has(p), `excludes ${p}`);
+  // Deleting the selection leaves both lifelines whole, crossing included.
+  manager.edit((ctx) => select.deleteSelection(ctx));
+  assert.equal(
+    gridToText(grid),
+    [
+      "      ╔═══════╦═══════╗",
+      "      ║ A     ║ B     ║",
+      "      ╚═══╦═══╩═══╦═══╝",
+      "          │       │",
+      "          │       │",
+      "          │       │",
+      "          │       │",
+      "          │       │",
+      "          │       │",
+    ].join("\n"),
+  );
+});
